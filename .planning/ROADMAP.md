@@ -13,7 +13,7 @@ Eugene is a Rust rewrite of entropy-goblin, bringing an autonomous offensive sec
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation & Memory** - Async-safe SQLite, FTS5 semantic search, safety layer, single binary (completed 2026-03-01)
-- [ ] **Phase 2: Tool System & Execution** - Single CLI execution tool with async command runner, timeout handling, structured error types
+- [x] **Phase 2: Tool System & Execution** - Single CLI execution tool with async command runner, timeout handling, structured error types (completed 2026-03-01)
 - [ ] **Phase 3: Single Agent Integration** - MiniMax M2.5 + rig integration, standalone executor agent validation
 - [ ] **Phase 4: Multi-Agent Orchestration** - Planner/executor pattern, parallel dispatch, bounded concurrency
 - [ ] **Phase 5: Scoring & Scripts** - CTF-style scoring system, script persistence with FTS5 search
@@ -52,9 +52,9 @@ Plans:
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — Config and LocalExecutor with tokio::process command execution
-- [ ] 02-02-PLAN.md — RunCommandTool and LogDiscoveryTool as rig Tool implementations
-- [ ] 02-03-PLAN.md — Integration tests and make_all_tools factory for agent registration
+- [x] 02-01-PLAN.md — Config and LocalExecutor with tokio::process command execution
+- [x] 02-02-PLAN.md — RunCommandTool and LogDiscoveryTool as rig Tool implementations
+- [x] 02-03-PLAN.md — Integration tests and make_all_tools factory for agent registration
 
 ### Phase 3: Single Agent Integration
 **Goal**: LLM + tools integration validated with MiniMax M2.5
@@ -68,7 +68,7 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — Agent module with client builder, system prompt, MockCompletionModel, and mock integration tests
+- [x] 03-01-PLAN.md — Agent module with client builder, system prompt, MockCompletionModel, and mock integration tests
 - [ ] 03-02-PLAN.md — main.rs wiring, live integration test, Phase 3 verification
 
 ### Phase 4: Multi-Agent Orchestration
@@ -123,8 +123,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Memory | 4/4 | Complete    | 2026-03-01 |
-| 2. Tool System & Execution | 0/3 | Not started | - |
-| 3. Single Agent Integration | 0/2 | Not started | - |
+| 2. Tool System & Execution | 3/3 | Complete | 2026-03-01 |
+| 3. Single Agent Integration | 1/2 | In Progress | - |
 | 4. Multi-Agent Orchestration | 0/TBD | Not started | - |
 | 5. Scoring & Scripts | 0/TBD | Not started | - |
 | 6. C2 & Scheduling | 0/TBD | Not started | - |
