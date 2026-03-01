@@ -154,7 +154,14 @@ pub async fn run_tui(
     let agent_db = db.clone();
     let agent_target = target.clone();
     let _agent_handle = tokio::spawn(async move {
-        let (client, model_name) = create_minimax_client();
+        let client_result = create_minimax_client();
+        let (client, model_name) = match client_result {
+            Ok(pair) => pair,
+            Err(e) => {
+                let _ = tx.send(AgentEvent::AgentError(e.to_string())).await;
+                return;
+            }
+        };
         let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
 
         let _ = tx

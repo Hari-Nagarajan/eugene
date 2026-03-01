@@ -58,16 +58,16 @@ async fn main() -> Result<(), anyhow::Error> {
                     }
                 }
                 ScheduleCommands::Delete { id } => {
-                    eugene::memory::delete_schedule(&db, id.clone()).await?;
                     println!("Deleted schedule: {id}");
+                    eugene::memory::delete_schedule(&db, id).await?;
                 }
                 ScheduleCommands::Pause { id } => {
-                    eugene::memory::pause_schedule(&db, id.clone()).await?;
                     println!("Paused schedule: {id}");
+                    eugene::memory::pause_schedule(&db, id).await?;
                 }
                 ScheduleCommands::Resume { id } => {
-                    eugene::memory::resume_schedule(&db, id.clone()).await?;
                     println!("Resumed schedule: {id}");
+                    eugene::memory::resume_schedule(&db, id).await?;
                 }
             }
         }

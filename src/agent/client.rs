@@ -6,14 +6,18 @@ const DEFAULT_MODEL: &str = "MiniMax-M2.5";
 /// Create a MiniMax client using rig's Anthropic client with custom base URL.
 ///
 /// Reads configuration from environment variables:
-/// - `MINIMAX_API_KEY` (required) - API key for MiniMax. Panics if not set.
+/// - `MINIMAX_API_KEY` (required) - API key for MiniMax.
 /// - `MINIMAX_BASE_URL` (optional) - defaults to `https://api.minimax.io/anthropic`
 /// - `MINIMAX_MODEL` (optional) - defaults to `MiniMax-M2.5`
 ///
 /// Returns the client and model name as a tuple.
-pub fn create_minimax_client() -> (anthropic::Client, String) {
+///
+/// # Errors
+///
+/// Returns an error if `MINIMAX_API_KEY` is not set or the client fails to build.
+pub fn create_minimax_client() -> Result<(anthropic::Client, String), anyhow::Error> {
     let api_key = std::env::var("MINIMAX_API_KEY")
-        .expect("MINIMAX_API_KEY must be set. Get your key from the MiniMax dashboard -> API keys.");
+        .map_err(|_| anyhow::anyhow!("MINIMAX_API_KEY not set. Get your key from the MiniMax dashboard -> API keys."))?;
 
     let base_url = std::env::var("MINIMAX_BASE_URL")
         .unwrap_or_else(|_| DEFAULT_BASE_URL.to_string());
@@ -25,7 +29,7 @@ pub fn create_minimax_client() -> (anthropic::Client, String) {
         .api_key(&api_key)
         .base_url(&base_url)
         .build()
-        .expect("Failed to build MiniMax client");
+        .map_err(|e| anyhow::anyhow!("Failed to build MiniMax client: {e}"))?;
 
-    (client, model_name)
+    Ok((client, model_name))
 }

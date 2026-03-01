@@ -239,10 +239,12 @@ async fn handle_chat_message(
 
     // Create MiniMax client and run
     let text_owned = text.to_string();
-    let result = {
-        let (client, model_name) = crate::agent::client::create_minimax_client();
-        let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
-        crate::agent::run_campaign(model, config, db.clone(), &text_owned).await
+    let result = match crate::agent::client::create_minimax_client() {
+        Ok((client, model_name)) => {
+            let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
+            crate::agent::run_campaign(model, config, db.clone(), &text_owned).await
+        }
+        Err(e) => Err(e),
     };
 
     // Stop typing

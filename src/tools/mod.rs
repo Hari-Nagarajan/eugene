@@ -96,8 +96,8 @@ pub fn make_all_tools(
     memory: Arc<Connection>,
 ) -> Vec<Box<dyn ToolDyn>> {
     vec![
-        Box::new(RunCommandTool::new(config.clone())) as Box<dyn ToolDyn>,
-        Box::new(LogDiscoveryTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(RunCommandTool::new(config)) as Box<dyn ToolDyn>,
+        Box::new(LogDiscoveryTool::new(memory)) as Box<dyn ToolDyn>,
     ]
 }
 
@@ -117,7 +117,7 @@ pub fn make_executor_tools(
         Box::new(LogDiscoveryTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(SaveScriptTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(RunScriptTool::new(memory.clone(), config)) as Box<dyn ToolDyn>,
+        Box::new(RunScriptTool::new(memory, config)) as Box<dyn ToolDyn>,
     ]
 }
 
@@ -135,7 +135,7 @@ pub fn make_orchestrator_memory_tools(
         Box::new(RecallFindingsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(GetRunSummaryTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
         Box::new(LogScoreTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
-        Box::new(GetScoreContextTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        Box::new(GetScoreContextTool::new(memory, run_id)) as Box<dyn ToolDyn>,
     ]
 }
 
@@ -188,6 +188,6 @@ pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
         // Script tools (3)
         Box::new(SaveScriptTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(RunScriptTool::new(memory.clone(), config)) as Box<dyn ToolDyn>,
+        Box::new(RunScriptTool::new(memory, config)) as Box<dyn ToolDyn>,
     ]
 }

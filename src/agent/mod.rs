@@ -16,7 +16,7 @@
 //!
 //! # Example (with real MiniMax client)
 //! ```no_run
-//! use eugene::agent::{AgentConfig, create_agent, run_recon_task};
+//! use eugene::agent::{create_agent, run_recon_task};
 //! use eugene::config::Config;
 //! use eugene::memory::{open_memory_store, init_schema};
 //! use rig::prelude::CompletionClient;
@@ -24,7 +24,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let (client, model_name) = eugene::agent::client::create_minimax_client();
+//!     let (client, model_name) = eugene::agent::client::create_minimax_client()?;
 //!     let model = client.completion_model(&model_name);
 //!     let config = Arc::new(Config::default());
 //!     let memory = open_memory_store("eugene.db").await?;
@@ -52,20 +52,6 @@ use crate::config::Config;
 use crate::memory::{create_run, update_run};
 use crate::tools::{make_all_tools, make_executor_tools, make_orchestrator_tools};
 use prompt::{EXECUTOR_PROMPT, ORCHESTRATOR_PROMPT, SYSTEM_PROMPT};
-
-/// Configuration for agent setup.
-pub struct AgentConfig {
-    /// Path to the SQLite database file. Use ":memory:" for in-memory DB (tests).
-    pub db_path: String,
-}
-
-impl Default for AgentConfig {
-    fn default() -> Self {
-        Self {
-            db_path: "eugene.db".to_string(),
-        }
-    }
-}
 
 /// Create a rig agent with the given completion model and all recon tools.
 ///

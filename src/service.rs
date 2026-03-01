@@ -18,7 +18,7 @@ pub fn generate_service_content() -> Result<String, anyhow::Error> {
     });
 
     let content = format!(
-        r#"[Unit]
+        r"[Unit]
 Description=Eugene Autonomous Recon Agent
 After=network-online.target
 Wants=network-online.target
@@ -38,7 +38,7 @@ Environment=EUGENE_DB_PATH={db_path}
 
 [Install]
 WantedBy=default.target
-"#
+"
     );
 
     Ok(content)

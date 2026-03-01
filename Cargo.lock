@@ -821,6 +821,7 @@ dependencies = [
  "croner",
  "crossterm",
  "dotenvy",
+ "ipnet",
  "log",
  "pretty_env_logger",
  "ratatui",

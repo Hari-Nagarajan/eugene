@@ -2,6 +2,13 @@ use crate::memory::{Connection, MemoryError};
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
 
+/// How often the decay sweep runs (24 hours)
+const DECAY_INTERVAL_SECS: u64 = 86400;
+/// Salience multiplier per decay cycle (2% decay)
+const DECAY_FACTOR: f64 = 0.98;
+/// Memories below this salience are pruned
+const PRUNE_THRESHOLD: f64 = 0.1;
+
 /// Spawn a background task that periodically decays salience of old memories
 ///
 /// The task runs every 24 hours and:
@@ -9,18 +16,17 @@ use tokio::time::{interval, Duration};
 /// - Deletes memories with salience below 0.1
 pub fn spawn_decay_task(conn: Arc<Connection>) {
     tokio::spawn(async move {
-        // Run daily decay sweep
-        let mut ticker = interval(Duration::from_secs(86400)); // 24 hours
+        let mut ticker = interval(Duration::from_secs(DECAY_INTERVAL_SECS));
 
         loop {
             ticker.tick().await;
 
             match run_decay_sweep(&conn).await {
                 Ok(deleted_count) => {
-                    println!("[INFO] Salience decay sweep completed: {} memories pruned", deleted_count);
+                    log::info!("Salience decay sweep completed: {} memories pruned", deleted_count);
                 }
                 Err(e) => {
-                    println!("[ERROR] Salience decay sweep failed: {}", e);
+                    log::error!("Salience decay sweep failed: {}", e);
                 }
             }
         }
@@ -31,18 +37,16 @@ pub fn spawn_decay_task(conn: Arc<Connection>) {
 ///
 /// Returns the count of memories deleted.
 pub async fn run_decay_sweep(conn: &Connection) -> Result<usize, MemoryError> {
-    let cutoff = chrono::Utc::now().timestamp() - 86400; // 1 day ago
+    let cutoff = chrono::Utc::now().timestamp() - DECAY_INTERVAL_SECS as i64;
 
     conn.call(move |conn| {
-        // Decay memories older than 1 day by 2%
         conn.execute(
-            "UPDATE memories SET salience = salience * 0.98 WHERE created_at < ?1",
+            &format!("UPDATE memories SET salience = salience * {} WHERE created_at < ?1", DECAY_FACTOR),
             rusqlite::params![cutoff],
         )?;
 
-        // Prune memories with salience below 0.1
         let deleted = conn.execute(
-            "DELETE FROM memories WHERE salience < 0.1",
+            &format!("DELETE FROM memories WHERE salience < {}", PRUNE_THRESHOLD),
             [],
         )?;
 

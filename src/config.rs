@@ -1,6 +1,20 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+/// Default per-tool timeouts in seconds.
+fn default_tool_timeouts() -> HashMap<&'static str, u64> {
+    HashMap::from([
+        ("nmap", 300),
+        ("tcpdump", 30),
+        ("whois", 15),
+        ("netdiscover", 60),
+        ("dns", 30),
+        ("arp", 10),
+        ("traceroute", 90),
+        ("default", 60),
+    ])
+}
+
 /// Configuration for tool execution settings and runtime environment
 pub struct Config {
     /// Per-tool default timeout in seconds
@@ -40,18 +54,8 @@ impl Config {
 
         let db_path = std::env::var("EUGENE_DB_PATH").unwrap_or_else(|_| "eugene.db".to_string());
 
-        let mut tool_timeouts = HashMap::new();
-        tool_timeouts.insert("nmap", 300);
-        tool_timeouts.insert("tcpdump", 30);
-        tool_timeouts.insert("whois", 15);
-        tool_timeouts.insert("netdiscover", 60);
-        tool_timeouts.insert("dns", 30);
-        tool_timeouts.insert("arp", 10);
-        tool_timeouts.insert("traceroute", 90);
-        tool_timeouts.insert("default", 60);
-
         Self {
-            tool_timeouts,
+            tool_timeouts: default_tool_timeouts(),
             working_directory: PathBuf::from("/tmp"),
             max_concurrent_executors: 4,
             telegram_bot_token,
@@ -64,18 +68,8 @@ impl Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let mut tool_timeouts = HashMap::new();
-        tool_timeouts.insert("nmap", 300);
-        tool_timeouts.insert("tcpdump", 30);
-        tool_timeouts.insert("whois", 15);
-        tool_timeouts.insert("netdiscover", 60);
-        tool_timeouts.insert("dns", 30);
-        tool_timeouts.insert("arp", 10);
-        tool_timeouts.insert("traceroute", 90);
-        tool_timeouts.insert("default", 60);
-
         Self {
-            tool_timeouts,
+            tool_timeouts: default_tool_timeouts(),
             working_directory: PathBuf::from("/tmp"),
             max_concurrent_executors: 4,
             telegram_bot_token: None,

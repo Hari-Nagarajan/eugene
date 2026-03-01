@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use teloxide::prelude::*;
 use teloxide::types::ParseMode;
 
@@ -94,12 +96,13 @@ pub fn format_findings(findings: &[Finding]) -> String {
     let mut out = String::from("<b>Findings</b>\n\n");
     for f in findings {
         let host = f.host.as_deref().unwrap_or("unknown");
-        out.push_str(&format!(
+        let _ = write!(
+            out,
             "<b>{}</b> [{}]\n<code>{}</code>\n\n",
             escape_html(host),
             escape_html(&f.finding_type),
             escape_html(&f.data),
-        ));
+        );
     }
     out
 }
@@ -121,7 +124,8 @@ pub fn format_schedule_list(schedules: &[ScheduledTask]) -> String {
             })
             .unwrap_or_default();
 
-        out.push_str(&format!(
+        let _ = write!(
+            out,
             "<code>{}</code> [{}]\n  Cron: <code>{}</code>\n  Prompt: {}\n  Next: {}{}\n\n",
             escape_html(&s.id[..8.min(s.id.len())]),
             escape_html(&s.status),
@@ -129,7 +133,7 @@ pub fn format_schedule_list(schedules: &[ScheduledTask]) -> String {
             escape_html(&s.prompt),
             s.next_run,
             last_result_preview,
-        ));
+        );
     }
     out
 }

@@ -1,6 +1,7 @@
 mod errors;
 pub use errors::SafetyError;
 
+use ipnet::IpNet;
 use regex::Regex;
 use std::sync::LazyLock;
 use std::net::IpAddr;
@@ -8,6 +9,11 @@ use std::net::IpAddr;
 /// Shell metacharacter detection regex - blocks ; & | ` $ ( ) > and newlines
 static SHELL_METACHAR: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[;&|`$()>\n]").unwrap()
+});
+
+/// Hostname validation regex - alphanumeric, hyphens, dots, underscores
+static HOSTNAME_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[a-zA-Z0-9._-]+$").unwrap()
 });
 
 /// Binaries that could destroy the Pi's filesystem or shut it down
@@ -76,15 +82,16 @@ pub fn sanitize_target(target: &str) -> Result<String, SafetyError> {
         return Ok(target.to_string());
     }
 
-    // Try as CIDR (basic check: contains '/')
+    // Try as CIDR
     if target.contains('/') {
-        // TODO: proper CIDR validation with ipnet crate
+        target.parse::<IpNet>().map_err(|_| {
+            SafetyError::InvalidTarget(format!("invalid CIDR notation: {target}"))
+        })?;
         return Ok(target.to_string());
     }
 
     // Validate as hostname: alphanumeric, hyphens, dots, underscores
-    let hostname_pattern = Regex::new(r"^[a-zA-Z0-9._-]+$").unwrap();
-    if hostname_pattern.is_match(target) {
+    if HOSTNAME_PATTERN.is_match(target) {
         return Ok(target.to_string());
     }
 

@@ -60,10 +60,12 @@ async fn execute_scheduled_task(
     let _ = bot.send_chat_action(chat_id, ChatAction::Typing).await;
 
     // Create MiniMax client and run campaign
-    let result = {
-        let (client, model_name) = crate::agent::client::create_minimax_client();
-        let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
-        crate::agent::run_campaign(model, config, db.clone(), &task.prompt).await
+    let result = match crate::agent::client::create_minimax_client() {
+        Ok((client, model_name)) => {
+            let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
+            crate::agent::run_campaign(model, config, db.clone(), &task.prompt).await
+        }
+        Err(e) => Err(e),
     };
 
     match result {
