@@ -76,15 +76,17 @@ Plans:
 **Depends on**: Phase 3
 **Requirements**: AGNT-02, AGNT-03, AGNT-04
 **Success Criteria** (what must be TRUE):
-  1. Orchestrator agent plans multi-phase workflow (orientation → discovery → enumeration → fingerprinting → exploitation)
+  1. Orchestrator agent plans multi-phase workflow (orientation -> discovery -> enumeration -> fingerprinting -> exploitation)
   2. Orchestrator spawns parallel executor agents via dispatch tools
   3. System enforces max 4 concurrent executors via Semaphore
   4. Executors return structured findings to orchestrator, aggregated in SQLite
   5. Memory tools (remember_finding, recall_findings) work with FTS5 search
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] TBD
+- [ ] 04-01-PLAN.md — Config extensions, split prompts, DB queries, memory tools, tool factory split
+- [ ] 04-02-PLAN.md — Dispatch tools with Semaphore-bounded tokio::spawn concurrency
+- [ ] 04-03-PLAN.md — Orchestrator wiring, run_campaign entry point, integration tests
 
 ### Phase 5: Scoring & Scripts
 **Goal**: CTF-style scoring tracks progress, script persistence enables agent-written tools
@@ -118,13 +120,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Memory | 4/4 | Complete    | 2026-03-01 |
 | 2. Tool System & Execution | 3/3 | Complete | 2026-03-01 |
 | 3. Single Agent Integration | 1/2 | In Progress | - |
-| 4. Multi-Agent Orchestration | 0/TBD | Not started | - |
+| 4. Multi-Agent Orchestration | 0/3 | Not started | - |
 | 5. Scoring & Scripts | 0/TBD | Not started | - |
 | 6. C2 & Scheduling | 0/TBD | Not started | - |

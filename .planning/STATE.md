@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-01T17:38:10Z"
+last_updated: "2026-03-01T18:10:31Z"
 progress:
-  total_phases: 3
+  total_phases: 6
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 12
+  completed_plans: 10
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Autonomously run multi-phase network reconnaissance and exploitation against a target network, making intelligent decisions without human intervention
-**Current focus:** Phase 3: Single Agent Integration (COMPLETE)
+**Current focus:** Phase 4: Multi-Agent Orchestration
 
 ## Current Position
 
-Phase: 3 of 6 (Single Agent Integration) -- COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase Complete
-Last activity: 2026-03-01 — Completed plan 03-02 (Main entry point and live integration tests)
+Phase: 4 of 6 (Multi-Agent Orchestration)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-03-01 — Completed plan 04-01 (Config extensions, split prompts, DB queries, memory tools)
 
-Progress: [█████████░] 56% (9 of 16 total plans across all phases)
+Progress: [██████████░] 63% (10 of 16 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 26.0 minutes
-- Total execution time: 3.77 hours
+- Total plans completed: 10
+- Average duration: 23.2 minutes
+- Total execution time: 3.87 hours
 
 **By Phase:**
 
@@ -43,6 +43,7 @@ Progress: [█████████░] 56% (9 of 16 total plans across all p
 | Phase 1 | 4 | 210 min | 52.5 min |
 | Phase 2 | 3 | 8 min | 2.7 min |
 | Phase 3 | 2 | 8 min | 4.0 min |
+| Phase 4 | 1 | 6 min | 6.0 min |
 
 **Recent Plans:**
 
@@ -57,6 +58,7 @@ Progress: [█████████░] 56% (9 of 16 total plans across all p
 | 02 | 02-03 | 3 min | 3 | 5 | 2026-03-01 |
 | 03 | 03-01 | 6 min | 2 | 7 | 2026-03-01 |
 | 03 | 03-02 | 2 min | 2 | 2 | 2026-03-01 |
+| 04 | 04-01 | 6 min | 2 | 9 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -95,6 +97,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Default task "scan the local network with arp-scan" when no CLI arg provided
 - [Phase 03]: Module-level cfg(feature) plus per-test cfg for live test double-gating
 - [Phase 03]: In-memory DB for live tests to avoid file system side effects
+- [Phase 04]: COALESCE wrapping SUM aggregations to handle NULL from empty task sets
+- [Phase 04]: make_orchestrator_memory_tools as non-generic interim factory (Plan 02 adds generic dispatch)
+- [Phase 04]: make_executor_tools returns same tool set as make_all_tools (backward compat)
 
 ### Pending Todos
 
@@ -107,7 +112,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 03-02-PLAN.md (Main entry point and live integration tests)
+Stopped at: Completed 04-01-PLAN.md (Config extensions, split prompts, DB queries, memory tools)
 Resume file: None
 
-Phase 3 complete. Eugene is now an executable agent with async main.rs entry point, MiniMax M2.5 client, and 27 mock tests. Live integration tests gated behind feature flag. Ready for Phase 4 (multi-agent orchestration).
+Phase 4 in progress. Plan 01 complete: Config extended with max_concurrent_executors, orchestrator/executor prompts split, 5 new DB queries, 3 rig Tool implementations (remember_finding, recall_findings, get_run_summary), tool factory split. Ready for Plan 02 (dispatch tools with Semaphore concurrency).

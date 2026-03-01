@@ -10,9 +10,9 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Agent System
 
 - [x] **AGNT-01**: Orchestrator agent plans multi-phase recon using rig + MiniMax M2.5
-- [ ] **AGNT-02**: Executor agents run focused tasks with subset of recon tools
+- [x] **AGNT-02**: Executor agents run focused tasks with subset of recon tools
 - [ ] **AGNT-03**: Orchestrator dispatches parallel executor agents via tokio::spawn with bounded concurrency (Semaphore, max 4)
-- [ ] **AGNT-04**: Multi-phase recon workflow (orientation → discovery → enumeration → fingerprinting → exploitation)
+- [x] **AGNT-04**: Multi-phase recon workflow (orientation → discovery → enumeration → fingerprinting → exploitation)
 - [x] **AGNT-05**: Single binary cross-compiled to ARM for direct Pi deployment
 
 ### Execution
@@ -102,9 +102,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | AGNT-01 | Phase 3 | Complete |
-| AGNT-02 | Phase 4 | Pending |
+| AGNT-02 | Phase 4 | Complete |
 | AGNT-03 | Phase 4 | Pending |
-| AGNT-04 | Phase 4 | Pending |
+| AGNT-04 | Phase 4 | Complete |
 | AGNT-05 | Phase 1 | Complete |
 | EXEC-01 | Phase 2 | Complete |
 | EXEC-02 | Phase 1 | Complete |
