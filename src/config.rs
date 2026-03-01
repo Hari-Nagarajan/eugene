@@ -7,6 +7,8 @@ pub struct Config {
     pub tool_timeouts: HashMap<&'static str, u64>,
     /// Working directory for command execution
     pub working_directory: PathBuf,
+    /// Maximum number of concurrent executor agents (bounded by Semaphore)
+    pub max_concurrent_executors: usize,
 }
 
 impl Default for Config {
@@ -24,6 +26,18 @@ impl Default for Config {
         Self {
             tool_timeouts,
             working_directory: PathBuf::from("/tmp"),
+            max_concurrent_executors: 4,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_default_max_concurrent_executors() {
+        let config = Config::default();
+        assert_eq!(config.max_concurrent_executors, 4);
     }
 }

@@ -23,6 +23,10 @@ pub enum ToolError {
     #[error("Execution failed: {0}")]
     ExecutionFailed(String),
 
+    /// Task dispatch to executor agent failed
+    #[error("Dispatch failed: {0}")]
+    DispatchFailed(String),
+
     /// Command blocked by safety validation
     #[error("Safety validation failed: {0}")]
     SafetyError(#[from] crate::safety::SafetyError),
