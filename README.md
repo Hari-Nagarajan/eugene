@@ -4,7 +4,7 @@
   <img src="logo.png" alt="Eugene logo" width="320" />
 </p>
 
-**Autonomous offensive security agent** built on MiniMax M2.5 via rig-core. Point it at a network and it figures out what to do: host discovery, service fingerprinting, credential capture, exploitation. All tracked in SQLite with Telegram C2 and a TUI dashboard.
+**Autonomous offensive security agent** powered by [rig-core](https://github.com/0xPlaygrounds/rig). Point it at a network and it figures out what to do: host discovery, service fingerprinting, credential capture, exploitation. All tracked in SQLite with Telegram C2 and a TUI dashboard.
 
 > **Sanctioned use only.** Designed for authorised network environments. Shell injection and Pi-destructive commands are blocked. Everything else is in scope.
 
@@ -141,6 +141,15 @@ Key environment variables:
 | `ALLOWED_CHAT_IDS` | — | Comma-separated allowed Telegram chat IDs |
 | `EUGENE_DB_PATH` | `eugene.db` | SQLite database path |
 
+### LLM Provider Compatibility
+
+| Provider | Status | Notes |
+|----------|--------|-------|
+| MiniMax (M2.5) | Supported | Current default provider |
+| Anthropic (Claude) | Coming soon | |
+| OpenAI (GPT-4) | Coming soon | |
+| Ollama (local) | Coming soon | |
+
 ---
 
 ## Telegram C2
@@ -189,7 +198,7 @@ src/
 ├── config.rs         # Environment configuration
 ├── service.rs        # Systemd service generator
 ├── lib.rs            # Library exports
-├── agent/            # LLM agent orchestration (MiniMax M2.5 via rig)
+├── agent/            # LLM agent orchestration (rig-core)
 ├── bot/              # Telegram bot (teloxide + dptree)
 ├── executor/         # Command execution with timeout enforcement
 ├── memory/           # SQLite store with FTS5 and salience decay
