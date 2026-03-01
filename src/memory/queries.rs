@@ -551,6 +551,283 @@ pub async fn get_script_by_name(
     err_result.map_err(MemoryError::from)
 }
 
+// ========== Phase 6: Session Functions ==========
+
+/// Scheduled task record from scheduled_tasks table
+#[derive(Debug)]
+pub struct ScheduledTask {
+    pub id: String,
+    pub chat_id: String,
+    pub prompt: String,
+    pub schedule: String,
+    pub next_run: i64,
+    pub last_run: Option<i64>,
+    pub last_result: Option<String>,
+    pub status: String,
+}
+
+/// Load session messages_json for a chat. Returns "[]" if no session exists.
+pub async fn load_session(
+    conn: &Connection,
+    chat_id: String,
+) -> Result<String, MemoryError> {
+    conn.call(move |conn| {
+        match conn.query_row(
+            "SELECT messages_json FROM sessions WHERE chat_id = ?1",
+            rusqlite::params![chat_id],
+            |row| row.get::<_, String>(0),
+        ) {
+            Ok(json) => Ok(json),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok("[]".to_string()),
+            Err(e) => Err(e.into()),
+        }
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Save session messages_json (INSERT OR REPLACE / upsert)
+pub async fn save_session(
+    conn: &Connection,
+    chat_id: String,
+    messages_json: String,
+) -> Result<(), MemoryError> {
+    conn.call(move |conn| {
+        conn.execute(
+            "INSERT INTO sessions (chat_id, messages_json, updated_at) \
+             VALUES (?1, ?2, datetime('now')) \
+             ON CONFLICT(chat_id) DO UPDATE SET messages_json = ?2, updated_at = datetime('now')",
+            rusqlite::params![chat_id, messages_json],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Clear session messages to "[]" but keep the row
+pub async fn clear_session(
+    conn: &Connection,
+    chat_id: String,
+) -> Result<(), MemoryError> {
+    conn.call(move |conn| {
+        conn.execute(
+            "UPDATE sessions SET messages_json = '[]', updated_at = datetime('now') WHERE chat_id = ?1",
+            rusqlite::params![chat_id],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+// ========== Phase 6: Schedule Functions ==========
+
+/// Create a new scheduled task with cron validation. Returns the UUID.
+pub async fn create_schedule(
+    conn: &Connection,
+    chat_id: String,
+    cron_expr: String,
+    prompt: String,
+) -> Result<String, MemoryError> {
+    use croner::Cron;
+    use std::str::FromStr;
+
+    // Validate cron expression and compute next_run OUTSIDE the closure
+    let cron = Cron::from_str(&cron_expr)
+        .map_err(|e| MemoryError::Query(format!("Invalid cron: {e}")))?;
+    let next_run = cron
+        .find_next_occurrence(&Utc::now(), false)
+        .map_err(|e| MemoryError::Query(format!("No next run: {e}")))?;
+    let next_ts = next_run.timestamp();
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let id_clone = id.clone();
+
+    conn.call(move |conn| {
+        conn.execute(
+            "INSERT INTO scheduled_tasks (id, chat_id, prompt, schedule, next_run, status, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'active', unixepoch('now'))",
+            rusqlite::params![id_clone, chat_id, prompt, cron_expr, next_ts],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)?;
+
+    Ok(id)
+}
+
+/// List all scheduled tasks for a chat_id, ordered by creation time
+pub async fn list_schedules(
+    conn: &Connection,
+    chat_id: String,
+) -> Result<Vec<ScheduledTask>, MemoryError> {
+    conn.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, chat_id, prompt, schedule, next_run, last_run, last_result, status \
+             FROM scheduled_tasks WHERE chat_id = ?1 ORDER BY created_at"
+        )?;
+        let tasks = stmt.query_map(rusqlite::params![chat_id], |row| {
+            Ok(ScheduledTask {
+                id: row.get(0)?,
+                chat_id: row.get(1)?,
+                prompt: row.get(2)?,
+                schedule: row.get(3)?,
+                next_run: row.get(4)?,
+                last_run: row.get(5)?,
+                last_result: row.get(6)?,
+                status: row.get(7)?,
+            })
+        })?.collect::<Result<Vec<_>, _>>()?;
+        Ok(tasks)
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Delete a scheduled task by ID
+pub async fn delete_schedule(
+    conn: &Connection,
+    id: String,
+) -> Result<(), MemoryError> {
+    conn.call(move |conn| {
+        conn.execute(
+            "DELETE FROM scheduled_tasks WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Pause a scheduled task (set status to 'paused')
+pub async fn pause_schedule(
+    conn: &Connection,
+    id: String,
+) -> Result<(), MemoryError> {
+    conn.call(move |conn| {
+        conn.execute(
+            "UPDATE scheduled_tasks SET status = 'paused' WHERE id = ?1",
+            rusqlite::params![id],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Resume a paused schedule (set status to 'active' and recompute next_run)
+pub async fn resume_schedule(
+    conn: &Connection,
+    id: String,
+) -> Result<(), MemoryError> {
+    use croner::Cron;
+    use std::str::FromStr;
+
+    // First read the schedule column to compute next_run
+    let id_read = id.clone();
+    let cron_expr: String = conn
+        .call(move |conn| {
+            conn.query_row(
+                "SELECT schedule FROM scheduled_tasks WHERE id = ?1",
+                rusqlite::params![id_read],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.into())
+        })
+        .await
+        .map_err(MemoryError::from)?;
+
+    // Compute next_run outside the closure
+    let cron = Cron::from_str(&cron_expr)
+        .map_err(|e| MemoryError::Query(format!("Invalid cron: {e}")))?;
+    let next_run = cron
+        .find_next_occurrence(&Utc::now(), false)
+        .map_err(|e| MemoryError::Query(format!("No next run: {e}")))?;
+    let next_ts = next_run.timestamp();
+
+    conn.call(move |conn| {
+        conn.execute(
+            "UPDATE scheduled_tasks SET status = 'active', next_run = ?1 WHERE id = ?2",
+            rusqlite::params![next_ts, id],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Get all active scheduled tasks that are due (next_run <= now)
+pub async fn get_due_schedules(
+    conn: &Connection,
+) -> Result<Vec<ScheduledTask>, MemoryError> {
+    conn.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, chat_id, prompt, schedule, next_run, last_run, last_result, status \
+             FROM scheduled_tasks WHERE status = 'active' AND next_run <= unixepoch('now')"
+        )?;
+        let tasks = stmt.query_map([], |row| {
+            Ok(ScheduledTask {
+                id: row.get(0)?,
+                chat_id: row.get(1)?,
+                prompt: row.get(2)?,
+                schedule: row.get(3)?,
+                next_run: row.get(4)?,
+                last_run: row.get(5)?,
+                last_result: row.get(6)?,
+                status: row.get(7)?,
+            })
+        })?.collect::<Result<Vec<_>, _>>()?;
+        Ok(tasks)
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Advance a schedule after execution: update last_run, last_result, compute new next_run
+pub async fn advance_schedule(
+    conn: &Connection,
+    id: String,
+    last_result: String,
+) -> Result<(), MemoryError> {
+    use croner::Cron;
+    use std::str::FromStr;
+
+    // Read the schedule column to compute next_run
+    let id_read = id.clone();
+    let cron_expr: String = conn
+        .call(move |conn| {
+            conn.query_row(
+                "SELECT schedule FROM scheduled_tasks WHERE id = ?1",
+                rusqlite::params![id_read],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.into())
+        })
+        .await
+        .map_err(MemoryError::from)?;
+
+    // Compute next_run outside the closure
+    let cron = Cron::from_str(&cron_expr)
+        .map_err(|e| MemoryError::Query(format!("Invalid cron: {e}")))?;
+    let next_run = cron
+        .find_next_occurrence(&Utc::now(), false)
+        .map_err(|e| MemoryError::Query(format!("No next run: {e}")))?;
+    let next_ts = next_run.timestamp();
+
+    conn.call(move |conn| {
+        conn.execute(
+            "UPDATE scheduled_tasks SET last_run = unixepoch('now'), last_result = ?1, next_run = ?2 WHERE id = ?3",
+            rusqlite::params![last_result, next_ts, id],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
 /// Increment script use_count and set last_run_at
 pub async fn update_script_usage(
     conn: &Connection,
