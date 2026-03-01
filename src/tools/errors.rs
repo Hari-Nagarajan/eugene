@@ -26,4 +26,8 @@ pub enum ToolError {
     /// Command blocked by safety validation
     #[error("Safety validation failed: {0}")]
     SafetyError(#[from] crate::safety::SafetyError),
+
+    /// Memory/database operation failed
+    #[error("Memory operation failed: {0}")]
+    MemoryError(#[from] crate::memory::MemoryError),
 }
