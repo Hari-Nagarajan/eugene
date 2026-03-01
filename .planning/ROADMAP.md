@@ -61,14 +61,15 @@ Plans:
 **Depends on**: Phase 2
 **Requirements**: AGNT-01
 **Success Criteria** (what must be TRUE):
-  1. Agent connects to MiniMax M2.5 via rig's Anthropic provider with custom base_url
+  1. Agent connects to MiniMax M2.5 via rig's OpenAI CompletionsClient with custom base_url
   2. Agent receives natural language task and selects appropriate recon tool
   3. Agent executes tool, receives output, and stores findings to memory
   4. Integration test passes: "scan 10.0.0.1" results in nmap execution and DB persistence
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] TBD
+- [ ] 03-01-PLAN.md — Agent module with client builder, system prompt, MockCompletionModel, and mock integration tests
+- [ ] 03-02-PLAN.md — main.rs wiring, live integration test, Phase 3 verification
 
 ### Phase 4: Multi-Agent Orchestration
 **Goal**: Orchestrator dispatches parallel executor agents with bounded concurrency
@@ -123,7 +124,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation & Memory | 4/4 | Complete    | 2026-03-01 |
 | 2. Tool System & Execution | 0/3 | Not started | - |
-| 3. Single Agent Integration | 0/TBD | Not started | - |
+| 3. Single Agent Integration | 0/2 | Not started | - |
 | 4. Multi-Agent Orchestration | 0/TBD | Not started | - |
 | 5. Scoring & Scripts | 0/TBD | Not started | - |
 | 6. C2 & Scheduling | 0/TBD | Not started | - |
