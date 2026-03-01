@@ -188,8 +188,7 @@ mod tests {
 
         let count: i64 = conn
             .call(|conn| {
-                let count: i64 = conn.query_row("SELECT COUNT(*) FROM memories", [], |row| row.get(0))?;
-                Ok(count)
+                Ok(conn.query_row("SELECT COUNT(*) FROM memories", [], |row| row.get(0))?)
             })
             .await
             .unwrap();
