@@ -33,7 +33,6 @@
 pub mod client;
 pub mod prompt;
 
-#[cfg(any(test, feature = "live-tests"))]
 pub mod mock;
 
 use std::sync::Arc;
