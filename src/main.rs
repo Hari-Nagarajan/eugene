@@ -9,11 +9,6 @@ use std::sync::Arc;
 async fn main() -> Result<(), anyhow::Error> {
     println!("Eugene - Autonomous Recon Agent\n");
 
-    // Read task from CLI arg, or use default
-    let task = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "scan the local network with arp-scan".to_string());
-
     // Initialize memory store and schema
     let memory = open_memory_store("eugene.db").await?;
     init_schema(&memory).await?;
@@ -25,13 +20,29 @@ async fn main() -> Result<(), anyhow::Error> {
     let (client, model_name) = create_minimax_client();
     let model = client.completion_model(&model_name);
 
-    // Build agent with all recon tools
-    let agent = create_agent(model, config, memory);
+    // Parse CLI args for mode selection
+    let args: Vec<String> = std::env::args().collect();
 
-    // Execute task
-    println!("Task: {task}\n");
-    let result: String = eugene::agent::run_recon_task(&agent, &task).await?;
-    println!("{result}");
+    if args.len() > 1 && args[1] == "--campaign" {
+        // Campaign mode: multi-agent orchestration
+        let target = args
+            .get(2)
+            .map(|s| s.as_str())
+            .unwrap_or("10.0.0.0/24");
+        println!("Campaign mode: targeting {target}\n");
+        let result = eugene::agent::run_campaign(model, config, memory, target).await?;
+        println!("{result}");
+    } else {
+        // Single-agent mode (backward compat)
+        let task = args
+            .get(1)
+            .map(|s| s.as_str())
+            .unwrap_or("scan the local network with arp-scan");
+        println!("Task: {task}\n");
+        let agent = create_agent(model, config, memory);
+        let result: String = eugene::agent::run_recon_task(&agent, task).await?;
+        println!("{result}");
+    }
 
     Ok(())
 }
