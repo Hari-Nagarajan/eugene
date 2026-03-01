@@ -5,6 +5,9 @@ pub enum MemoryError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
 
+    #[error("Tokio-rusqlite error: {0}")]
+    TokioRusqlite(#[from] tokio_rusqlite::Error),
+
     #[error("Connection error: {0}")]
     Connection(String),
 
