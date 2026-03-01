@@ -51,11 +51,14 @@ pub use recall::{RecallFindingsTool, RecallFindingsArgs, RecallFindingsResult, F
 mod run_summary;
 pub use run_summary::{GetRunSummaryTool, GetRunSummaryArgs, GetRunSummaryResult};
 
+use rig::completion::CompletionModel;
 use rig::tool::ToolDyn;
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tokio_rusqlite::Connection;
 
 use crate::config::Config;
+use crate::orchestrator::dispatch::{DispatchTaskTool, DispatchParallelTasksTool};
 
 /// Create all recon tools for agent registration.
 /// Returns both run_command and log_discovery tools as dynamic trait objects.
@@ -91,12 +94,51 @@ pub fn make_executor_tools(
 /// Create orchestrator memory tools (remember, recall, run_summary).
 ///
 /// These are the non-generic orchestrator tools that don't require a model type.
-/// Plan 02 will compose these with generic dispatch tools in `make_orchestrator_tools<M>`.
+/// For the full orchestrator tool set including dispatch tools, use `make_orchestrator_tools<M>`.
 pub fn make_orchestrator_memory_tools(
     memory: Arc<Connection>,
     run_id: i64,
 ) -> Vec<Box<dyn ToolDyn>> {
     vec![
+        Box::new(RememberFindingTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        Box::new(RecallFindingsTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(GetRunSummaryTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+    ]
+}
+
+/// Create the full orchestrator tool set: dispatch tools + memory tools.
+///
+/// Returns all 5 orchestrator tools:
+/// - `DispatchTaskTool`: Dispatch a single task to an executor agent
+/// - `DispatchParallelTasksTool`: Dispatch multiple tasks concurrently
+/// - `RememberFindingTool`: Persist findings for cross-phase recall
+/// - `RecallFindingsTool`: Retrieve findings by host
+/// - `GetRunSummaryTool`: Get run statistics
+///
+/// Generic over `M: CompletionModel` because dispatch tools need to create
+/// executor agents with the same model type.
+pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
+    model: Arc<M>,
+    config: Arc<Config>,
+    memory: Arc<Connection>,
+    semaphore: Arc<Semaphore>,
+    run_id: i64,
+) -> Vec<Box<dyn ToolDyn>> {
+    vec![
+        Box::new(DispatchTaskTool::new(
+            model.clone(),
+            config.clone(),
+            memory.clone(),
+            semaphore.clone(),
+            run_id,
+        )) as Box<dyn ToolDyn>,
+        Box::new(DispatchParallelTasksTool::new(
+            model,
+            config,
+            memory.clone(),
+            semaphore,
+            run_id,
+        )) as Box<dyn ToolDyn>,
         Box::new(RememberFindingTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
         Box::new(RecallFindingsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(GetRunSummaryTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
