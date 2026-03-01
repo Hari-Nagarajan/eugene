@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-01T19:09:25Z"
+last_updated: "2026-03-01T19:19:57Z"
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 5 of 6 (Scoring & Scripts)
-Plan: 2 of 3 in current phase
-Status: In Progress
-Last activity: 2026-03-01 -- Completed plan 05-02 (Scoring & script tools)
+Plan: 3 of 3 in current phase
+Status: Phase Complete
+Last activity: 2026-03-01 -- Completed plan 05-03 (Agent factory wiring and integration tests)
 
-Progress: [█████████████████░░] 88% (14 of 16 total plans across all phases)
+Progress: [██████████████████░] 94% (15 of 16 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
-- Average duration: 18.2 minutes
-- Total execution time: 4.19 hours
+- Total plans completed: 15
+- Average duration: 17.5 minutes
+- Total execution time: 4.27 hours
 
 **By Phase:**
 
@@ -44,7 +44,7 @@ Progress: [█████████████████░░] 88% (14 of
 | Phase 2 | 3 | 8 min | 2.7 min |
 | Phase 3 | 2 | 8 min | 4.0 min |
 | Phase 4 | 3 | 14 min | 4.7 min |
-| Phase 5 | 2 | 11 min | 5.5 min |
+| Phase 5 | 3 | 16 min | 5.3 min |
 
 **Recent Plans:**
 
@@ -64,6 +64,7 @@ Progress: [█████████████████░░] 88% (14 of
 | 04 | 04-03 | 4 min | 2 | 3 | 2026-03-01 |
 | 05 | 05-01 | 6 min | 2 | 5 | 2026-03-01 |
 | 05 | 05-02 | 5 min | 2 | 6 | 2026-03-01 |
+| 05 | 05-03 | 5 min | 2 | 4 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -119,6 +120,7 @@ Recent decisions affecting current work:
 - [Phase 05]: RunScriptTool uses interpreter invocation (bash/python3) not direct execution for permission safety
 - [Phase 05]: GetScoreContextTool drops timestamp from ScoreEventSummary for conciseness
 - [Phase 05]: RunScriptTool ignores update_script_usage errors (error-as-value pattern for non-critical updates)
+- [Phase 05]: Extended GetRunSummaryResult with total_score and detection_count to surface scoring data through run summary tool
 
 ### Pending Todos
 
@@ -131,7 +133,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 05-02-PLAN.md (Scoring & script tools)
+Stopped at: Completed 05-03-PLAN.md (Agent factory wiring and integration tests)
 Resume file: None
 
-Phase 5 in progress. Plan 05-02 complete: 5 new rig Tool trait implementations (LogScoreTool, GetScoreContextTool, SaveScriptTool, SearchScriptsTool, RunScriptTool) wrapping Plan 01 query functions. LogScoreTool validates actions against fixed point table. RunScriptTool uses tempfile + interpreter invocation. 63 lib tests passing, zero clippy warnings. Ready for Plan 05-03 (agent factory registration and integration tests).
+Phase 5 complete. All 3 plans executed: scoring/script queries (05-01), tool implementations (05-02), agent factory wiring + integration tests (05-03). 10 orchestrator tools, 5 executor tools. ORCHESTRATOR_PROMPT has EV risk gating and score-aware strategy. 88 tests passing, zero clippy warnings. Ready for Phase 6.

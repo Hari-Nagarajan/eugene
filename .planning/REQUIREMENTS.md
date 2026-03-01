@@ -47,7 +47,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SCOR-01**: Point system (+10 host, +5 port, +15 service, +20 OS, +25 vuln, +50 cred, +75 login, +150 priv esc, +200 RCE, +100 data exfil)
 - [x] **SCOR-02**: Detection penalties (-100 per detection event)
-- [ ] **SCOR-03**: EV-based risk gating (proceed with exploit only if expected value > 0)
+- [x] **SCOR-03**: EV-based risk gating (proceed with exploit only if expected value > 0)
 - [x] **SCOR-04**: Score event logging with action, points, risk level, and detection status
 
 ### Telegram C2
@@ -127,7 +127,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MEM-06 | Phase 1 | Complete |
 | SCOR-01 | Phase 5 | Complete |
 | SCOR-02 | Phase 5 | Complete |
-| SCOR-03 | Phase 5 | Pending |
+| SCOR-03 | Phase 5 | Complete |
 | SCOR-04 | Phase 5 | Complete |
 | TELE-01 | Phase 6 | Pending |
 | TELE-02 | Phase 6 | Pending |
