@@ -136,7 +136,7 @@ mod tests {
             .unwrap();
 
         // Memory 1 should have decayed salience (0.5 * 0.98 = 0.49)
-        assert!(results.len() >= 1);
+        assert!(!results.is_empty());
         assert!((results[0].1 - 0.49).abs() < 0.01, "Memory 1 salience should be ~0.49");
 
         // Memory 2 should be deleted (0.11 * 0.98 = 0.1078, still above 0.1)

@@ -182,11 +182,11 @@ mod tests {
     async fn test_crud_operations() {
         // Setup: Create in-memory database
         let conn = open_memory_store(":memory:").await.unwrap();
-        init_schema(&*conn).await.unwrap();
+        init_schema(&conn).await.unwrap();
 
         // Test create_run
         let run_id = create_run(
-            &*conn,
+            &conn,
             "manual".to_string(),
             Some("test trigger".to_string()),
         )
@@ -209,7 +209,7 @@ mod tests {
 
         // Test log_finding
         let finding_id = log_finding(
-            &*conn,
+            &conn,
             Some(run_id),
             Some("192.168.1.1".to_string()),
             "open_port".to_string(),
@@ -234,7 +234,7 @@ mod tests {
 
         // Test save_memory
         let memory_id = save_memory(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "Test memory content".to_string(),
             "semantic".to_string(),
@@ -272,7 +272,7 @@ mod tests {
 
         // Test invalid sector
         let result = save_memory(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "content".to_string(),
             "invalid".to_string(),
@@ -285,11 +285,11 @@ mod tests {
     async fn test_fts5_search() {
         // Setup: Create in-memory database
         let conn = open_memory_store(":memory:").await.unwrap();
-        init_schema(&*conn).await.unwrap();
+        init_schema(&conn).await.unwrap();
 
         // Insert test memories
         save_memory(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "Network reconnaissance using nmap".to_string(),
             "episodic".to_string(),
@@ -298,7 +298,7 @@ mod tests {
         .unwrap();
 
         save_memory(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "Found open port 22 on target host".to_string(),
             "episodic".to_string(),
@@ -307,7 +307,7 @@ mod tests {
         .unwrap();
 
         save_memory(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "SQL injection vulnerability detected".to_string(),
             "episodic".to_string(),
@@ -316,7 +316,7 @@ mod tests {
         .unwrap();
 
         save_memory(
-            &*conn,
+            &conn,
             "other_chat".to_string(),
             "Network reconnaissance data".to_string(),
             "episodic".to_string(),
@@ -326,7 +326,7 @@ mod tests {
 
         // Test 1: Basic search with single word
         let results = search_memories(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "network".to_string(),
             10,
@@ -338,7 +338,7 @@ mod tests {
 
         // Test 2: Search with multiple words (OR query)
         let results = search_memories(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "port injection".to_string(),
             10,
@@ -349,7 +349,7 @@ mod tests {
 
         // Test 3: Search with special characters (sanitization test)
         let results = search_memories(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "host:192.168".to_string(), // Contains ':' which would break FTS5
             10,
@@ -360,7 +360,7 @@ mod tests {
 
         // Test 4: Empty query returns empty results
         let results = search_memories(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "".to_string(),
             10,
@@ -371,7 +371,7 @@ mod tests {
 
         // Test 5: Chat ID filtering
         let results = search_memories(
-            &*conn,
+            &conn,
             "other_chat".to_string(),
             "reconnaissance".to_string(),
             10,
@@ -385,7 +385,7 @@ mod tests {
 
         // Search again for the same memory
         let results = search_memories(
-            &*conn,
+            &conn,
             "other_chat".to_string(),
             "reconnaissance".to_string(),
             10,
@@ -398,7 +398,7 @@ mod tests {
 
         // Test 7: Limit enforcement
         let results = search_memories(
-            &*conn,
+            &conn,
             "test_chat".to_string(),
             "test".to_string(),
             1,

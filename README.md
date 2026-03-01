@@ -48,6 +48,20 @@ ssh kali@100.99.249.70
 - Safety layer (blocks Pi-destructive commands, allows offensive tools)
 - 10-table schema (runs, tasks, findings, memories, etc.)
 
+## Phase 2: Tool System
+
+**Status:** Complete
+
+Tool system implemented with single command execution approach:
+- **RunCommandTool**: Executes any CLI command (nmap, dig, arp, etc.) via tokio::process with safety validation and configurable timeouts
+- **LogDiscoveryTool**: Persists structured findings to SQLite with FTS5 searchability
+- **LocalExecutor**: Async command execution with timeout enforcement and error classification
+- **Config**: Per-tool timeout defaults (nmap=300s, tcpdump=30s, whois=15s, etc.)
+
+Unlike the original Python version's 8 separate tool structs, Eugene uses a single generic command runner. The agent constructs commands itself based on its system prompt.
+
+**Next:** Phase 3 -- Single Agent Integration (MiniMax M2.5 + rig)
+
 ## Development
 
 ```bash
@@ -71,7 +85,12 @@ cargo fmt
   - Blocks destructive commands (rm -rf, dd, shutdown, etc.)
   - Allows offensive tools (nmap, hydra, sqlmap, etc.)
   - Prevents shell metacharacter injection
-- **Agent Framework:** rig-core for LLM integration (Phase 2+)
+- **Tool System:** rig Tool trait implementations for agent interaction
+  - `RunCommandTool`: Generic CLI execution with per-tool timeouts and output truncation
+  - `LogDiscoveryTool`: Structured finding persistence to SQLite
+  - `make_all_tools()` factory for agent registration
+  - 6-variant `ToolError` enum for agent error reasoning
+- **Agent Framework:** rig-core for LLM integration (Phase 3+)
 
 ## License
 
