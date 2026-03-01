@@ -1,9 +1,15 @@
 //! Agent module for Eugene recon agent.
 //!
-//! Provides the core agent construction and execution API:
-//! - `create_agent()`: Build a rig agent with MiniMax M2.5 (or mock) model and all recon tools
+//! Provides single-agent and multi-agent orchestration APIs:
+//!
+//! **Single-agent mode:**
+//! - `create_agent()`: Build a rig agent with all recon tools (backward compat)
 //! - `run_recon_task()`: Convenience function to prompt an agent and return the result
-//! - `AgentConfig`: Configuration for agent setup (e.g., database path)
+//!
+//! **Multi-agent orchestration:**
+//! - `create_orchestrator_agent()`: Build an orchestrator with dispatch + memory tools
+//! - `create_executor_agent()`: Build an executor with recon tools and EXECUTOR_PROMPT
+//! - `run_campaign()`: Full campaign lifecycle: create run, build orchestrator, execute, update status
 //!
 //! The agent uses rig's multi-turn tool-calling loop to chain reconnaissance operations:
 //! scan -> analyze -> log findings -> chain additional scans -> summarize.
@@ -36,14 +42,16 @@ pub mod prompt;
 pub mod mock;
 
 use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tokio_rusqlite::Connection;
 
 use rig::agent::{Agent, AgentBuilder};
 use rig::completion::{CompletionModel, Prompt, PromptError};
 
 use crate::config::Config;
-use crate::tools::make_all_tools;
-use prompt::SYSTEM_PROMPT;
+use crate::memory::{create_run, update_run};
+use crate::tools::{make_all_tools, make_executor_tools, make_orchestrator_tools};
+use prompt::{EXECUTOR_PROMPT, ORCHESTRATOR_PROMPT, SYSTEM_PROMPT};
 
 /// Configuration for agent setup.
 pub struct AgentConfig {
@@ -97,4 +105,105 @@ pub async fn run_recon_task(
         .prompt(task)
         .await
         .map_err(|e: PromptError| anyhow::anyhow!("Agent prompt failed: {e}"))
+}
+
+/// Create an orchestrator agent with dispatch + memory tools.
+///
+/// The orchestrator plans multi-phase recon campaigns and dispatches tasks
+/// to executor agents. It gets 5 tools: dispatch_task, dispatch_parallel_tasks,
+/// remember_finding, recall_findings, get_run_summary.
+///
+/// Higher max_turns (20) than executor because the orchestrator plans, dispatches,
+/// and reasons across all 5 campaign phases.
+pub fn create_orchestrator_agent<M: CompletionModel + Clone + Send + Sync + 'static>(
+    model: M,
+    config: Arc<Config>,
+    memory: Arc<Connection>,
+    semaphore: Arc<Semaphore>,
+    run_id: i64,
+) -> Agent<M>
+where
+    M::Response: Send,
+    M::StreamingResponse: Send,
+{
+    let model_arc = Arc::new(model);
+    let tools = make_orchestrator_tools(model_arc.clone(), config, memory, semaphore, run_id);
+
+    AgentBuilder::new((*model_arc).clone())
+        .preamble(ORCHESTRATOR_PROMPT)
+        .tools(tools)
+        .temperature(0.3)
+        .max_tokens(4096)
+        .default_max_turns(20)
+        .build()
+}
+
+/// Create an executor agent with recon tools and EXECUTOR_PROMPT.
+///
+/// Executors are focused, task-specific agents that receive a single task
+/// from the orchestrator and use run_command + log_discovery to complete it.
+/// Lower max_turns (8) since executors handle focused, scoped tasks.
+pub fn create_executor_agent<M: CompletionModel>(
+    model: M,
+    config: Arc<Config>,
+    memory: Arc<Connection>,
+) -> Agent<M> {
+    let tools = make_executor_tools(config, memory);
+
+    AgentBuilder::new(model)
+        .preamble(EXECUTOR_PROMPT)
+        .tools(tools)
+        .temperature(0.3)
+        .max_tokens(4096)
+        .default_max_turns(8)
+        .build()
+}
+
+/// Run a full multi-phase recon campaign using the orchestrator agent.
+///
+/// Lifecycle:
+/// 1. Create a run record in the DB
+/// 2. Create a bounded semaphore for executor concurrency
+/// 3. Build the orchestrator agent with dispatch + memory tools
+/// 4. Prompt the orchestrator with the campaign target
+/// 5. Update run status to "completed" (or "failed" on error)
+///
+/// Returns the orchestrator's final campaign summary.
+pub async fn run_campaign<M: CompletionModel + Clone + Send + Sync + 'static>(
+    model: M,
+    config: Arc<Config>,
+    memory: Arc<Connection>,
+    target: &str,
+) -> Result<String, anyhow::Error>
+where
+    M::Response: Send,
+    M::StreamingResponse: Send,
+{
+    // Create run record in DB
+    let run_id = create_run(&memory, "campaign".to_string(), Some(target.to_string())).await?;
+
+    // Create semaphore for bounded executor concurrency
+    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_executors));
+
+    // Build orchestrator agent
+    let orchestrator = create_orchestrator_agent(model, config, memory.clone(), semaphore, run_id);
+
+    // Build campaign prompt
+    let prompt = format!(
+        "Run a complete multi-phase recon campaign against target: {}. \
+         Execute all 5 phases and report findings.",
+        target,
+    );
+
+    // Execute and handle success/failure
+    match run_recon_task(&orchestrator, &prompt).await {
+        Ok(result) => {
+            let _ = update_run(&memory, run_id, "completed").await;
+            Ok(result)
+        }
+        Err(e) => {
+            let _ = update_run(&memory, run_id, "failed").await;
+            Err(e)
+        }
+    }
 }
