@@ -34,6 +34,7 @@ uuid = { version = "1", features = ["v4"] }
 log = "0.4"
 pretty_env_logger = "0.5"
 crossterm = "0.29"
+dotenvy = "0.15.7"
 
 [features]
 live-tests = []

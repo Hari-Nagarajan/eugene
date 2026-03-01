@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
+    let _ = dotenvy::dotenv();
     pretty_env_logger::init();
     let cli = Cli::parse();
     let config = Arc::new(Config::from_env());
