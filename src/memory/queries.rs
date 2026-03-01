@@ -1173,6 +1173,151 @@ mod tests {
         assert!(last_run_at.is_some(), "last_run_at should be set");
     }
 
+    // ========== Phase 6: Session & Schedule Tests ==========
+
+    #[tokio::test]
+    async fn test_session_load_empty_db_returns_empty_json() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let result = load_session(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(result, "[]", "Empty DB should return '[]'");
+    }
+
+    #[tokio::test]
+    async fn test_session_save_then_load() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let json = r#"[{"role":"user","content":"hello"}]"#.to_string();
+        save_session(&conn, "chat_1".to_string(), json.clone()).await.unwrap();
+
+        let loaded = load_session(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(loaded, json);
+    }
+
+    #[tokio::test]
+    async fn test_session_save_upserts() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        save_session(&conn, "chat_1".to_string(), "[1]".to_string()).await.unwrap();
+        save_session(&conn, "chat_1".to_string(), "[2]".to_string()).await.unwrap();
+
+        let loaded = load_session(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(loaded, "[2]", "Second save should upsert");
+    }
+
+    #[tokio::test]
+    async fn test_session_clear() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        save_session(&conn, "chat_1".to_string(), "[1,2,3]".to_string()).await.unwrap();
+        clear_session(&conn, "chat_1".to_string()).await.unwrap();
+
+        let loaded = load_session(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(loaded, "[]", "clear_session should reset to '[]'");
+    }
+
+    #[tokio::test]
+    async fn test_schedule_create_returns_uuid() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let id = create_schedule(&conn, "chat_1".to_string(), "0 */6 * * *".to_string(), "scan network".to_string()).await.unwrap();
+        assert!(!id.is_empty(), "create_schedule should return a UUID string");
+        // UUID v4 format: 8-4-4-4-12 hex chars
+        assert_eq!(id.len(), 36, "UUID should be 36 chars");
+    }
+
+    #[tokio::test]
+    async fn test_schedule_create_invalid_cron() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let result = create_schedule(&conn, "chat_1".to_string(), "bad cron".to_string(), "scan network".to_string()).await;
+        assert!(result.is_err(), "Invalid cron should return MemoryError");
+    }
+
+    #[tokio::test]
+    async fn test_schedule_list() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        create_schedule(&conn, "chat_1".to_string(), "0 */6 * * *".to_string(), "scan A".to_string()).await.unwrap();
+        create_schedule(&conn, "chat_1".to_string(), "0 0 * * *".to_string(), "scan B".to_string()).await.unwrap();
+        create_schedule(&conn, "chat_2".to_string(), "0 12 * * *".to_string(), "scan C".to_string()).await.unwrap();
+
+        let list = list_schedules(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(list.len(), 2, "Should list 2 schedules for chat_1");
+    }
+
+    #[tokio::test]
+    async fn test_schedule_delete() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let id = create_schedule(&conn, "chat_1".to_string(), "0 */6 * * *".to_string(), "scan".to_string()).await.unwrap();
+        delete_schedule(&conn, id).await.unwrap();
+
+        let list = list_schedules(&conn, "chat_1".to_string()).await.unwrap();
+        assert!(list.is_empty(), "Schedule should be deleted");
+    }
+
+    #[tokio::test]
+    async fn test_schedule_pause_and_resume() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let id = create_schedule(&conn, "chat_1".to_string(), "0 */6 * * *".to_string(), "scan".to_string()).await.unwrap();
+
+        pause_schedule(&conn, id.clone()).await.unwrap();
+        let list = list_schedules(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(list[0].status, "paused");
+
+        resume_schedule(&conn, id).await.unwrap();
+        let list = list_schedules(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(list[0].status, "active");
+    }
+
+    #[tokio::test]
+    async fn test_schedule_get_due() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        // Create a schedule with next_run in the past (should be due)
+        let id = create_schedule(&conn, "chat_1".to_string(), "* * * * *".to_string(), "scan".to_string()).await.unwrap();
+
+        // Manually set next_run to 0 (far past) to ensure it's due
+        let id_clone = id.clone();
+        conn.call(move |conn| {
+            conn.execute(
+                "UPDATE scheduled_tasks SET next_run = 0 WHERE id = ?1",
+                rusqlite::params![id_clone],
+            )?;
+            Ok(())
+        }).await.unwrap();
+
+        let due = get_due_schedules(&conn).await.unwrap();
+        assert_eq!(due.len(), 1, "Should find 1 due schedule");
+        assert_eq!(due[0].id, id);
+    }
+
+    #[tokio::test]
+    async fn test_schedule_advance() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let id = create_schedule(&conn, "chat_1".to_string(), "0 */6 * * *".to_string(), "scan".to_string()).await.unwrap();
+
+        advance_schedule(&conn, id.clone(), "scan completed successfully".to_string()).await.unwrap();
+
+        let list = list_schedules(&conn, "chat_1".to_string()).await.unwrap();
+        assert_eq!(list[0].last_result.as_deref(), Some("scan completed successfully"));
+        assert!(list[0].last_run.is_some(), "last_run should be set after advance");
+    }
+
     #[tokio::test]
     async fn test_run_summary_includes_score_fields() {
         let conn = open_memory_store(":memory:").await.unwrap();
