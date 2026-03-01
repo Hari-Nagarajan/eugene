@@ -97,10 +97,12 @@ Plans:
   2. Detection penalties (-100) applied when stealth fails
   3. EV-based risk gating prevents exploits with negative expected value
   4. Agent can write scripts, store to SQLite, retrieve via FTS5 search, and execute
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] TBD
+- [ ] 05-01-PLAN.md — Score event queries, script queries, RunSummary extension, scripts_fts FTS5, tempfile dep
+- [ ] 05-02-PLAN.md — LogScoreTool, GetScoreContextTool, SaveScriptTool, SearchScriptsTool, RunScriptTool
+- [ ] 05-03-PLAN.md — Prompt updates (scoring/EV + scripts), factory wiring, integration tests
 
 ### Phase 6: C2 & Scheduling
 **Goal**: Telegram C2 enables remote control, scheduler enables autonomous operation
@@ -128,5 +130,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 2. Tool System & Execution | 3/3 | Complete | 2026-03-01 |
 | 3. Single Agent Integration | 1/2 | In Progress | - |
 | 4. Multi-Agent Orchestration | 0/3 | Not started | - |
-| 5. Scoring & Scripts | 0/TBD | Not started | - |
+| 5. Scoring & Scripts | 0/3 | Not started | - |
 | 6. C2 & Scheduling | 0/TBD | Not started | - |
