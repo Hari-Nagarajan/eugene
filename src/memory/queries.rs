@@ -29,6 +29,43 @@ pub struct RunSummary {
     pub finding_count: i64,
     pub completed_task_count: i64,
     pub failed_task_count: i64,
+    // Phase 5 scoring fields
+    pub total_score: i64,
+    pub detection_count: i64,
+    pub last_score_event: Option<String>,
+}
+
+/// Score event record
+#[derive(Debug, serde::Serialize)]
+pub struct ScoreEvent {
+    pub action: String,
+    pub points: i64,
+    pub risk_level: String,
+    pub detected: bool,
+    pub timestamp: String,
+}
+
+/// Score summary for a run
+#[derive(Debug, serde::Serialize)]
+pub struct ScoreSummary {
+    pub total_score: i64,
+    pub detection_count: i64,
+    pub recent_events: Vec<ScoreEvent>,
+}
+
+/// Script record from scripts table
+#[derive(Debug, serde::Serialize)]
+pub struct Script {
+    pub id: i64,
+    pub name: String,
+    pub description: String,
+    pub language: String,
+    pub tags: String,
+    pub code: String,
+    pub use_count: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub last_run_at: Option<String>,
 }
 
 /// Finding record structure
@@ -193,11 +230,15 @@ pub async fn get_run_summary(
             |row| row.get(0),
         )?;
 
+        // Stub score fields (RED phase - will be implemented in GREEN)
         Ok(RunSummary {
             task_count,
             finding_count,
             completed_task_count,
             failed_task_count,
+            total_score: 0,
+            detection_count: 0,
+            last_score_event: None,
         })
     })
     .await
@@ -302,6 +343,85 @@ pub async fn search_memories(
     })
     .await
     .map_err(MemoryError::from)
+}
+
+/// Look up point value for a scoring action
+pub fn points_for_action(action: &str) -> Option<i64> {
+    // STUB: returns None for all actions (RED phase)
+    let _ = action;
+    None
+}
+
+/// Log a score event and return its ID
+pub async fn log_score_event(
+    conn: &Connection,
+    run_id: Option<i64>,
+    action: String,
+    risk_level: String,
+    detected: bool,
+) -> Result<i64, MemoryError> {
+    // STUB: always returns error (RED phase)
+    let _ = (conn, run_id, action, risk_level, detected);
+    Err(MemoryError::Query("not implemented".to_string()))
+}
+
+/// Get score summary for a run
+pub async fn get_score_summary(
+    conn: &Connection,
+    run_id: i64,
+) -> Result<ScoreSummary, MemoryError> {
+    // STUB: returns empty summary (RED phase)
+    let _ = (conn, run_id);
+    Ok(ScoreSummary {
+        total_score: -999,
+        detection_count: -999,
+        recent_events: vec![],
+    })
+}
+
+/// Save a script (insert or upsert on name conflict)
+pub async fn save_script(
+    conn: &Connection,
+    name: String,
+    description: String,
+    language: String,
+    tags: String,
+    code: String,
+) -> Result<i64, MemoryError> {
+    // STUB: always returns error (RED phase)
+    let _ = (conn, name, description, language, tags, code);
+    Err(MemoryError::Query("not implemented".to_string()))
+}
+
+/// Search scripts using FTS5
+pub async fn search_scripts(
+    conn: &Connection,
+    query: String,
+    limit: i64,
+) -> Result<Vec<Script>, MemoryError> {
+    // STUB: always returns error (RED phase)
+    let _ = (conn, query, limit);
+    Err(MemoryError::Query("not implemented".to_string()))
+}
+
+/// Get a script by its unique name
+pub async fn get_script_by_name(
+    conn: &Connection,
+    name: String,
+) -> Result<Option<Script>, MemoryError> {
+    // STUB: always returns error (RED phase)
+    let _ = (conn, name);
+    Err(MemoryError::Query("not implemented".to_string()))
+}
+
+/// Increment script use_count and set last_run_at
+pub async fn update_script_usage(
+    conn: &Connection,
+    script_id: i64,
+) -> Result<(), MemoryError> {
+    // STUB: always returns error (RED phase)
+    let _ = (conn, script_id);
+    Err(MemoryError::Query("not implemented".to_string()))
 }
 
 #[cfg(test)]
@@ -681,5 +801,257 @@ mod tests {
         .await
         .unwrap();
         assert!(results.len() <= 1, "Should respect limit parameter");
+    }
+
+    // ========== Phase 5: Score & Script Tests ==========
+
+    #[test]
+    fn test_points_for_action_known_actions() {
+        assert_eq!(points_for_action("host_discovered"), Some(10));
+        assert_eq!(points_for_action("port_found"), Some(5));
+        assert_eq!(points_for_action("service_identified"), Some(15));
+        assert_eq!(points_for_action("os_fingerprinted"), Some(20));
+        assert_eq!(points_for_action("vuln_detected"), Some(25));
+        assert_eq!(points_for_action("credential_captured"), Some(50));
+        assert_eq!(points_for_action("successful_login"), Some(75));
+        assert_eq!(points_for_action("privilege_escalation"), Some(150));
+        assert_eq!(points_for_action("rce_achieved"), Some(200));
+        assert_eq!(points_for_action("data_exfiltrated"), Some(100));
+        assert_eq!(points_for_action("detection"), Some(-100));
+    }
+
+    #[test]
+    fn test_points_for_action_unknown_returns_none() {
+        assert_eq!(points_for_action("bogus_action"), None);
+        assert_eq!(points_for_action(""), None);
+        assert_eq!(points_for_action("HOST_DISCOVERED"), None); // case sensitive
+    }
+
+    #[tokio::test]
+    async fn test_log_score_event_inserts_and_returns_id() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        let event_id = log_score_event(&conn, Some(run_id), "host_discovered".to_string(), "low".to_string(), false).await.unwrap();
+        assert!(event_id > 0, "log_score_event should return valid ID");
+
+        // Verify the correct points were stored
+        let points: i64 = conn
+            .call(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT points FROM score_events WHERE id = ?1",
+                    rusqlite::params![event_id],
+                    |row| row.get(0),
+                )?)
+            })
+            .await
+            .unwrap();
+        assert_eq!(points, 10, "host_discovered should have 10 points");
+    }
+
+    #[tokio::test]
+    async fn test_log_score_event_rejects_unknown_action() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let result = log_score_event(&conn, None, "bogus_action".to_string(), "low".to_string(), false).await;
+        assert!(result.is_err(), "Should reject unknown action");
+    }
+
+    #[tokio::test]
+    async fn test_get_score_summary_empty_run() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        let summary = get_score_summary(&conn, run_id).await.unwrap();
+        assert_eq!(summary.total_score, 0, "Empty run should have total_score=0");
+        assert_eq!(summary.detection_count, 0, "Empty run should have detection_count=0");
+        assert!(summary.recent_events.is_empty(), "Empty run should have no events");
+    }
+
+    #[tokio::test]
+    async fn test_get_score_summary_with_events() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        log_score_event(&conn, Some(run_id), "host_discovered".to_string(), "low".to_string(), false).await.unwrap();
+        log_score_event(&conn, Some(run_id), "port_found".to_string(), "low".to_string(), false).await.unwrap();
+        log_score_event(&conn, Some(run_id), "detection".to_string(), "high".to_string(), true).await.unwrap();
+
+        let summary = get_score_summary(&conn, run_id).await.unwrap();
+        // 10 + 5 + (-100) = -85
+        assert_eq!(summary.total_score, -85, "Total score should be 10+5-100=-85");
+        assert_eq!(summary.detection_count, 1, "Should count 1 detection");
+        assert_eq!(summary.recent_events.len(), 3, "Should have 3 recent events");
+    }
+
+    #[tokio::test]
+    async fn test_save_script_insert_and_upsert() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let id = save_script(
+            &conn,
+            "sweep.sh".to_string(),
+            "ARP sweep script".to_string(),
+            "bash".to_string(),
+            "[\"network\"]".to_string(),
+            "arp-scan --localnet".to_string(),
+        ).await.unwrap();
+        assert!(id > 0, "save_script should return valid ID");
+
+        // Upsert: same name, different code -- should not error
+        let id2 = save_script(
+            &conn,
+            "sweep.sh".to_string(),
+            "Updated ARP sweep".to_string(),
+            "bash".to_string(),
+            "[\"network\"]".to_string(),
+            "arp-scan -I eth0 --localnet".to_string(),
+        ).await.unwrap();
+        assert!(id2 > 0, "upsert should return valid ID");
+
+        // Verify code was updated
+        let code: String = conn
+            .call(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT code FROM scripts WHERE name = 'sweep.sh'",
+                    [],
+                    |row| row.get(0),
+                )?)
+            })
+            .await
+            .unwrap();
+        assert!(code.contains("eth0"), "Code should be updated after upsert");
+    }
+
+    #[tokio::test]
+    async fn test_search_scripts_fts5() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        save_script(
+            &conn,
+            "nmap_scan.sh".to_string(),
+            "Network port scanner using nmap".to_string(),
+            "bash".to_string(),
+            "[\"network\",\"scan\"]".to_string(),
+            "nmap -sS $1".to_string(),
+        ).await.unwrap();
+
+        save_script(
+            &conn,
+            "hydra_brute.sh".to_string(),
+            "SSH brute force with hydra".to_string(),
+            "bash".to_string(),
+            "[\"brute\",\"ssh\"]".to_string(),
+            "hydra -l admin -P pass.txt ssh://$1".to_string(),
+        ).await.unwrap();
+
+        let results = search_scripts(&conn, "nmap".to_string(), 10).await.unwrap();
+        assert_eq!(results.len(), 1, "Should find 1 script matching 'nmap'");
+        assert_eq!(results[0].name, "nmap_scan.sh");
+    }
+
+    #[tokio::test]
+    async fn test_search_scripts_empty_query() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let results = search_scripts(&conn, "".to_string(), 10).await.unwrap();
+        assert!(results.is_empty(), "Empty query should return empty vec");
+    }
+
+    #[tokio::test]
+    async fn test_search_scripts_special_chars() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        // Should not crash with FTS5 special characters
+        let results = search_scripts(&conn, "test:foo*bar".to_string(), 10).await.unwrap();
+        assert!(results.is_empty() || !results.is_empty(), "Should not crash with special chars");
+    }
+
+    #[tokio::test]
+    async fn test_get_script_by_name_found_and_not_found() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        save_script(
+            &conn,
+            "sweep.sh".to_string(),
+            "ARP sweep".to_string(),
+            "bash".to_string(),
+            "[]".to_string(),
+            "arp-scan --localnet".to_string(),
+        ).await.unwrap();
+
+        let found = get_script_by_name(&conn, "sweep.sh".to_string()).await.unwrap();
+        assert!(found.is_some(), "Should find existing script");
+        assert_eq!(found.unwrap().name, "sweep.sh");
+
+        let not_found = get_script_by_name(&conn, "nonexistent.sh".to_string()).await.unwrap();
+        assert!(not_found.is_none(), "Should return None for missing script");
+    }
+
+    #[tokio::test]
+    async fn test_update_script_usage_increments() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let id = save_script(
+            &conn,
+            "sweep.sh".to_string(),
+            "ARP sweep".to_string(),
+            "bash".to_string(),
+            "[]".to_string(),
+            "arp-scan --localnet".to_string(),
+        ).await.unwrap();
+
+        update_script_usage(&conn, id).await.unwrap();
+        update_script_usage(&conn, id).await.unwrap();
+
+        let (use_count, last_run_at): (i64, Option<String>) = conn
+            .call(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT use_count, last_run_at FROM scripts WHERE id = ?1",
+                    rusqlite::params![id],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )?)
+            })
+            .await
+            .unwrap();
+        assert_eq!(use_count, 2, "use_count should be 2 after two updates");
+        assert!(last_run_at.is_some(), "last_run_at should be set");
+    }
+
+    #[tokio::test]
+    async fn test_run_summary_includes_score_fields() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        // Create tasks and findings
+        let t1 = log_task(&conn, run_id, "task1", "desc1").await.unwrap();
+        update_task(&conn, t1, "completed", "ok").await.unwrap();
+        log_finding(&conn, Some(run_id), Some("host".to_string()), "port".to_string(), "data".to_string()).await.unwrap();
+
+        // Create score events
+        log_score_event(&conn, Some(run_id), "host_discovered".to_string(), "low".to_string(), false).await.unwrap();
+        log_score_event(&conn, Some(run_id), "port_found".to_string(), "low".to_string(), false).await.unwrap();
+        log_score_event(&conn, Some(run_id), "detection".to_string(), "high".to_string(), true).await.unwrap();
+
+        let summary = get_run_summary(&conn, run_id).await.unwrap();
+        assert_eq!(summary.task_count, 1);
+        assert_eq!(summary.finding_count, 1);
+        assert_eq!(summary.completed_task_count, 1);
+        assert_eq!(summary.failed_task_count, 0);
+        assert_eq!(summary.total_score, -85, "total_score = 10+5-100 = -85");
+        assert_eq!(summary.detection_count, 1);
+        assert!(summary.last_score_event.is_some(), "last_score_event should be set");
+        assert_eq!(summary.last_score_event.unwrap(), "detection");
     }
 }
