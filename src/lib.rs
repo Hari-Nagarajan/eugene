@@ -6,3 +6,4 @@ pub mod memory;
 pub mod orchestrator;
 pub mod safety;
 pub mod tools;
+pub mod tui;
