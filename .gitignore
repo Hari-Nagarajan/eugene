@@ -1,2 +1,6 @@
 /target
-.planning/
+.planning
+
+*.db
+*.db-shm
+*.db-wal
