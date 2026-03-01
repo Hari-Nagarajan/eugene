@@ -17,6 +17,7 @@
 //! # Example (with real MiniMax client)
 //! ```no_run
 //! use eugene::agent::{create_agent, run_recon_task};
+//! use eugene::agent::tools_available::AvailableTools;
 //! use eugene::config::Config;
 //! use eugene::memory::{open_memory_store, init_schema};
 //! use rig::prelude::CompletionClient;
@@ -29,7 +30,8 @@
 //!     let config = Arc::new(Config::default());
 //!     let memory = open_memory_store("eugene.db").await?;
 //!     init_schema(&memory).await?;
-//!     let agent = create_agent(model, config, memory);
+//!     let tools = AvailableTools::default();
+//!     let agent = create_agent(model, config, memory, &tools);
 //!     let result = run_recon_task(&agent, "scan 10.0.0.1").await?;
 //!     println!("{result}");
 //!     Ok(())
@@ -38,6 +40,7 @@
 
 pub mod client;
 pub mod prompt;
+pub mod tools_available;
 
 pub mod mock;
 
@@ -51,7 +54,7 @@ use rig::completion::{CompletionModel, Prompt, PromptError};
 use crate::config::Config;
 use crate::memory::{create_run, update_run};
 use crate::tools::{make_all_tools, make_executor_tools, make_orchestrator_tools};
-use prompt::{EXECUTOR_PROMPT, ORCHESTRATOR_PROMPT, SYSTEM_PROMPT};
+use tools_available::AvailableTools;
 
 /// Create a rig agent with the given completion model and all recon tools.
 ///
@@ -68,11 +71,13 @@ pub fn create_agent<M: CompletionModel>(
     model: M,
     config: Arc<Config>,
     memory: Arc<Connection>,
+    available_tools: &AvailableTools,
 ) -> Agent<M> {
     let tools = make_all_tools(config, memory);
+    let preamble = prompt::system_prompt(available_tools);
 
     AgentBuilder::new(model)
-        .preamble(SYSTEM_PROMPT)
+        .preamble(&preamble)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -107,16 +112,26 @@ pub fn create_orchestrator_agent<M: CompletionModel + Clone + Send + Sync + 'sta
     memory: Arc<Connection>,
     semaphore: Arc<Semaphore>,
     run_id: i64,
+    available_tools: &AvailableTools,
 ) -> Agent<M>
 where
     M::Response: Send,
     M::StreamingResponse: Send,
 {
     let model_arc = Arc::new(model);
-    let tools = make_orchestrator_tools(model_arc.clone(), config, memory, semaphore, run_id);
+    let available_tools_arc = Arc::new(available_tools.clone());
+    let tools = make_orchestrator_tools(
+        model_arc.clone(),
+        config,
+        memory,
+        semaphore,
+        run_id,
+        available_tools_arc,
+    );
+    let preamble = prompt::orchestrator_prompt(available_tools);
 
     AgentBuilder::new((*model_arc).clone())
-        .preamble(ORCHESTRATOR_PROMPT)
+        .preamble(&preamble)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -133,11 +148,13 @@ pub fn create_executor_agent<M: CompletionModel>(
     model: M,
     config: Arc<Config>,
     memory: Arc<Connection>,
+    available_tools: &AvailableTools,
 ) -> Agent<M> {
     let tools = make_executor_tools(config, memory);
+    let preamble = prompt::executor_prompt(available_tools);
 
     AgentBuilder::new(model)
-        .preamble(EXECUTOR_PROMPT)
+        .preamble(&preamble)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -148,11 +165,12 @@ pub fn create_executor_agent<M: CompletionModel>(
 /// Run a full multi-phase recon campaign using the orchestrator agent.
 ///
 /// Lifecycle:
-/// 1. Create a run record in the DB
-/// 2. Create a bounded semaphore for executor concurrency
-/// 3. Build the orchestrator agent with dispatch + memory tools
-/// 4. Prompt the orchestrator with the campaign target
-/// 5. Update run status to "completed" (or "failed" on error)
+/// 1. Check which tools are installed on the system
+/// 2. Create a run record in the DB
+/// 3. Create a bounded semaphore for executor concurrency
+/// 4. Build the orchestrator agent with dispatch + memory tools
+/// 5. Prompt the orchestrator with the campaign target
+/// 6. Update run status to "completed" (or "failed" on error)
 ///
 /// Returns the orchestrator's final campaign summary.
 pub async fn run_campaign<M: CompletionModel + Clone + Send + Sync + 'static>(
@@ -165,6 +183,9 @@ where
     M::Response: Send,
     M::StreamingResponse: Send,
 {
+    // Check which tools are available on this system
+    let available_tools = tools_available::check_available_tools().await;
+
     // Create run record in DB
     let run_id = create_run(&memory, "campaign".to_string(), Some(target.to_string())).await?;
 
@@ -172,7 +193,14 @@ where
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_executors));
 
     // Build orchestrator agent
-    let orchestrator = create_orchestrator_agent(model, config, memory.clone(), semaphore, run_id);
+    let orchestrator = create_orchestrator_agent(
+        model,
+        config,
+        memory.clone(),
+        semaphore,
+        run_id,
+        &available_tools,
+    );
 
     // Build campaign prompt
     let prompt = format!(

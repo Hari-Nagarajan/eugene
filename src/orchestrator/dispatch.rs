@@ -14,7 +14,8 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio_rusqlite::Connection;
 
-use crate::agent::prompt::EXECUTOR_PROMPT;
+use crate::agent::prompt;
+use crate::agent::tools_available::AvailableTools;
 use crate::config::Config;
 use crate::memory::{log_task, update_task};
 use crate::tools::{make_executor_tools, ToolError};
@@ -55,6 +56,7 @@ pub struct DispatchTaskTool<M: CompletionModel> {
     memory: Arc<Connection>,
     semaphore: Arc<Semaphore>,
     run_id: i64,
+    available_tools: Arc<AvailableTools>,
 }
 
 impl<M: CompletionModel> DispatchTaskTool<M> {
@@ -64,6 +66,7 @@ impl<M: CompletionModel> DispatchTaskTool<M> {
         memory: Arc<Connection>,
         semaphore: Arc<Semaphore>,
         run_id: i64,
+        available_tools: Arc<AvailableTools>,
     ) -> Self {
         Self {
             model,
@@ -71,6 +74,7 @@ impl<M: CompletionModel> DispatchTaskTool<M> {
             memory,
             semaphore,
             run_id,
+            available_tools,
         }
     }
 }
@@ -89,7 +93,7 @@ where
         ToolDefinition {
             name: "dispatch_task".to_string(),
             description: "Dispatch a single task to an executor agent. \
-                The executor will use recon tools (nmap, dig, arp, tcpdump, etc.) \
+                The executor will use installed recon tools \
                 to complete the task and return structured findings."
                 .to_string(),
             parameters: json!({
@@ -127,6 +131,7 @@ where
         let model = self.model.clone();
         let config = self.config.clone();
         let memory = self.memory.clone();
+        let available_tools = self.available_tools.clone();
         let task_description = args.task_description;
         let task_name = args.task_name;
 
@@ -136,8 +141,9 @@ where
 
             // Create ephemeral executor agent with recon tools
             let executor_tools = make_executor_tools(config, memory.clone());
+            let preamble = prompt::executor_prompt(&available_tools);
             let executor = AgentBuilder::new((*model).clone())
-                .preamble(EXECUTOR_PROMPT)
+                .preamble(&preamble)
                 .tools(executor_tools)
                 .temperature(0.3)
                 .max_tokens(4096)
@@ -180,6 +186,7 @@ pub struct DispatchParallelTasksTool<M: CompletionModel> {
     memory: Arc<Connection>,
     semaphore: Arc<Semaphore>,
     run_id: i64,
+    available_tools: Arc<AvailableTools>,
 }
 
 impl<M: CompletionModel> DispatchParallelTasksTool<M> {
@@ -189,6 +196,7 @@ impl<M: CompletionModel> DispatchParallelTasksTool<M> {
         memory: Arc<Connection>,
         semaphore: Arc<Semaphore>,
         run_id: i64,
+        available_tools: Arc<AvailableTools>,
     ) -> Self {
         Self {
             model,
@@ -196,6 +204,7 @@ impl<M: CompletionModel> DispatchParallelTasksTool<M> {
             memory,
             semaphore,
             run_id,
+            available_tools,
         }
     }
 }
@@ -264,6 +273,7 @@ where
             let model = self.model.clone();
             let config = self.config.clone();
             let memory = self.memory.clone();
+            let available_tools = self.available_tools.clone();
             let task_description = task.description.clone();
             let task_name = task.name.clone();
 
@@ -272,8 +282,9 @@ where
 
                 // Create ephemeral executor agent with recon tools
                 let executor_tools = make_executor_tools(config, memory.clone());
+                let preamble = prompt::executor_prompt(&available_tools);
                 let executor = AgentBuilder::new((*model).clone())
-                    .preamble(EXECUTOR_PROMPT)
+                    .preamble(&preamble)
                     .tools(executor_tools)
                     .temperature(0.3)
                     .max_tokens(4096)
@@ -329,19 +340,20 @@ mod tests {
     use rig::OneOrMany;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    /// Helper: create in-memory DB + run + semaphore for dispatch tests.
-    async fn setup_dispatch() -> (Arc<Config>, Arc<Connection>, Arc<Semaphore>, i64) {
+    /// Helper: create in-memory DB + run + semaphore + default tools for dispatch tests.
+    async fn setup_dispatch() -> (Arc<Config>, Arc<Connection>, Arc<Semaphore>, i64, Arc<AvailableTools>) {
         let config = Arc::new(Config::default());
         let memory = open_memory_store(":memory:").await.unwrap();
         init_schema(&memory).await.unwrap();
         let run_id = create_run(&memory, "test".to_string(), None).await.unwrap();
         let semaphore = Arc::new(Semaphore::new(config.max_concurrent_executors));
-        (config, memory, semaphore, run_id)
+        let available_tools = Arc::new(AvailableTools::default());
+        (config, memory, semaphore, run_id, available_tools)
     }
 
     #[tokio::test]
     async fn test_dispatch_task_returns_executor_result() {
-        let (config, memory, semaphore, run_id) = setup_dispatch().await;
+        let (config, memory, semaphore, run_id, available_tools) = setup_dispatch().await;
 
         // Mock executor: single text response
         let mock = MockCompletionModel::new(vec![OneOrMany::one(AssistantContent::text(
@@ -354,6 +366,7 @@ mod tests {
             memory,
             semaphore,
             run_id,
+            available_tools,
         );
 
         let result = tool
@@ -376,7 +389,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_parallel_returns_two_results() {
-        let (config, memory, semaphore, run_id) = setup_dispatch().await;
+        let (config, memory, semaphore, run_id, available_tools) = setup_dispatch().await;
 
         // Mock: 2 executors each return a single text
         // Note: MockCompletionModel is Clone (uses Arc<Mutex<Vec>>), so the
@@ -392,6 +405,7 @@ mod tests {
             memory,
             semaphore,
             run_id,
+            available_tools,
         );
 
         let result = tool
@@ -430,7 +444,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_task_logs_to_db() {
-        let (config, memory, semaphore, run_id) = setup_dispatch().await;
+        let (config, memory, semaphore, run_id, available_tools) = setup_dispatch().await;
 
         let mock = MockCompletionModel::new(vec![OneOrMany::one(AssistantContent::text(
             "Scan complete.",
@@ -442,6 +456,7 @@ mod tests {
             memory.clone(),
             semaphore,
             run_id,
+            available_tools,
         );
 
         tool.call(DispatchTaskArgs {
@@ -472,7 +487,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_task_executor_failure_returns_error_string() {
-        let (config, memory, semaphore, run_id) = setup_dispatch().await;
+        let (config, memory, semaphore, run_id, available_tools) = setup_dispatch().await;
 
         // Mock with empty response queue -- will panic, causing a JoinError
         // But we need a model that produces an error, not a panic.
@@ -489,6 +504,7 @@ mod tests {
             memory.clone(),
             semaphore,
             run_id,
+            available_tools,
         );
 
         let result = tool
@@ -513,6 +529,7 @@ mod tests {
         init_schema(&memory).await.unwrap();
         let run_id = create_run(&memory, "test".to_string(), None).await.unwrap();
         let semaphore = Arc::new(Semaphore::new(1)); // max 1 concurrent
+        let available_tools = Arc::new(AvailableTools::default());
 
         // Track peak concurrency using an atomic counter
         static PEAK: AtomicUsize = AtomicUsize::new(0);
@@ -532,6 +549,7 @@ mod tests {
             memory,
             semaphore,
             run_id,
+            available_tools,
         );
 
         let result = tool
@@ -562,7 +580,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dispatch_task_failed_executor_updates_db_status() {
-        let (config, memory, semaphore, run_id) = setup_dispatch().await;
+        let (config, memory, semaphore, run_id, available_tools) = setup_dispatch().await;
 
         // Empty queue causes panic -> JoinError
         let mock = MockCompletionModel::new(vec![]);
@@ -573,6 +591,7 @@ mod tests {
             memory.clone(),
             semaphore,
             run_id,
+            available_tools,
         );
 
         let _ = tool

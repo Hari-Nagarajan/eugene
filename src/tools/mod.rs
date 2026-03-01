@@ -82,6 +82,7 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio_rusqlite::Connection;
 
+use crate::agent::tools_available::AvailableTools;
 use crate::config::Config;
 use crate::orchestrator::dispatch::{DispatchTaskTool, DispatchParallelTasksTool};
 
@@ -161,6 +162,7 @@ pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
     memory: Arc<Connection>,
     semaphore: Arc<Semaphore>,
     run_id: i64,
+    available_tools: Arc<AvailableTools>,
 ) -> Vec<Box<dyn ToolDyn>> {
     vec![
         // Dispatch tools (2)
@@ -170,6 +172,7 @@ pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
             memory.clone(),
             semaphore.clone(),
             run_id,
+            available_tools.clone(),
         )) as Box<dyn ToolDyn>,
         Box::new(DispatchParallelTasksTool::new(
             model,
@@ -177,6 +180,7 @@ pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
             memory.clone(),
             semaphore,
             run_id,
+            available_tools,
         )) as Box<dyn ToolDyn>,
         // Memory tools (3)
         Box::new(RememberFindingTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,

@@ -4,6 +4,7 @@
 mod common;
 
 use eugene::agent::mock::MockCompletionModel;
+use eugene::agent::tools_available::AvailableTools;
 use eugene::agent::{create_agent, create_orchestrator_agent, run_campaign, run_recon_task};
 use eugene::memory::create_run;
 
@@ -19,6 +20,7 @@ use tokio::sync::Semaphore;
 #[tokio::test]
 async fn test_mock_scan_flow() {
     let (config, memory) = common::setup_env().await;
+    let tools = AvailableTools::default();
 
     let mock = MockCompletionModel::new(vec![
         OneOrMany::one(AssistantContent::tool_call(
@@ -40,7 +42,7 @@ async fn test_mock_scan_flow() {
         )),
     ]);
 
-    let agent = create_agent(mock, config, memory.clone());
+    let agent = create_agent(mock, config, memory.clone(), &tools);
     let result: String = agent.prompt("scan 10.0.0.1").await.unwrap();
 
     assert!(
@@ -117,6 +119,7 @@ async fn test_memory_tools_round_trip() {
         .await
         .unwrap();
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_executors));
+    let tools = AvailableTools::default();
 
     let mock = MockCompletionModel::new(vec![
         OneOrMany::one(AssistantContent::tool_call(
@@ -139,7 +142,7 @@ async fn test_memory_tools_round_trip() {
     ]);
 
     let orchestrator =
-        create_orchestrator_agent(mock, config, memory.clone(), semaphore, run_id);
+        create_orchestrator_agent(mock, config, memory.clone(), semaphore, run_id, &tools);
 
     let result: String =
         run_recon_task(&orchestrator, "Discover and recall findings for 10.0.0.1")
