@@ -25,5 +25,15 @@ anyhow = "1.0.98"
 # AI agent framework
 rig-core = { path = "/Users/hari/Projects/rig/rig/rig-core" }
 
+# Phase 6: C2 & Scheduling
+teloxide = { version = "0.17", features = ["macros"] }
+clap = { version = "4.5", features = ["derive"] }
+ratatui = "0.30"
+croner = "3.0"
+uuid = { version = "1", features = ["v4"] }
+log = "0.4"
+pretty_env_logger = "0.5"
+crossterm = "0.28"
+
 [features]
 live-tests = []

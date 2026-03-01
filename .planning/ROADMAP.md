@@ -114,10 +114,13 @@ Plans:
   3. User creates scheduled tasks via /schedule create with cron expressions
   4. CLI supports run and schedule subcommands (create/list/delete/pause/resume)
   5. Systemd service generator creates .service file for always-on Pi deployment
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
 
 Plans:
-- [ ] TBD
+- [ ] 06-01-PLAN.md — Dependencies, clap CLI, config env loading, session and schedule CRUD queries
+- [ ] 06-02-PLAN.md — Telegram bot with commands, allow-list, session persistence, formatting, and scheduler
+- [ ] 06-03-PLAN.md — Ratatui TUI dashboard for interactive `eugene run` experience
+- [ ] 06-04-PLAN.md — Main.rs clap wiring, systemd service generator, integration tests
 
 ## Progress
 
@@ -131,4 +134,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Single Agent Integration | 1/2 | In Progress | - |
 | 4. Multi-Agent Orchestration | 0/3 | Not started | - |
 | 5. Scoring & Scripts | 0/3 | Not started | - |
-| 6. C2 & Scheduling | 0/TBD | Not started | - |
+| 6. C2 & Scheduling | 0/4 | Not started | - |
