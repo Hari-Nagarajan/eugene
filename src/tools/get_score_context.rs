@@ -5,6 +5,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
 
+use crate::memory::get_score_summary;
 use crate::tools::ToolError;
 
 /// Arguments for the get_score_context tool (empty -- no parameters required)
@@ -73,7 +74,24 @@ impl Tool for GetScoreContextTool {
     }
 
     async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
-        todo!("GetScoreContextTool::call not yet implemented")
+        let summary = get_score_summary(&self.memory, self.run_id).await?;
+
+        let recent_events = summary
+            .recent_events
+            .into_iter()
+            .map(|e| ScoreEventSummary {
+                action: e.action,
+                points: e.points,
+                risk_level: e.risk_level,
+                detected: e.detected,
+            })
+            .collect();
+
+        Ok(GetScoreContextResult {
+            total_score: summary.total_score,
+            detection_count: summary.detection_count,
+            recent_events,
+        })
     }
 }
 

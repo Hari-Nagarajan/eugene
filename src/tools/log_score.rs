@@ -5,6 +5,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
 
+use crate::memory::{points_for_action, log_score_event, get_score_summary};
 use crate::tools::ToolError;
 
 /// Arguments for the log_score tool
@@ -77,8 +78,37 @@ impl Tool for LogScoreTool {
         }
     }
 
-    async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
-        todo!("LogScoreTool::call not yet implemented")
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        // Validate action against fixed point table
+        let points = points_for_action(&args.action).ok_or_else(|| {
+            ToolError::ExecutionFailed(format!(
+                "Unknown action type: {}. Valid actions: host_discovered, port_found, \
+                 service_identified, os_fingerprinted, vuln_detected, credential_captured, \
+                 successful_login, privilege_escalation, rce_achieved, data_exfiltrated, detection",
+                args.action
+            ))
+        })?;
+
+        let risk_level = args.risk_level.unwrap_or_else(|| "low".to_string());
+        let detected = args.action == "detection";
+
+        let event_id = log_score_event(
+            &self.memory,
+            Some(self.run_id),
+            args.action.clone(),
+            risk_level,
+            detected,
+        )
+        .await?;
+
+        let summary = get_score_summary(&self.memory, self.run_id).await?;
+
+        Ok(LogScoreResult {
+            event_id,
+            action: args.action,
+            points,
+            total_score: summary.total_score,
+        })
     }
 }
 
