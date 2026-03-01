@@ -51,6 +51,12 @@ pub use recall::{RecallFindingsTool, RecallFindingsArgs, RecallFindingsResult, F
 mod run_summary;
 pub use run_summary::{GetRunSummaryTool, GetRunSummaryArgs, GetRunSummaryResult};
 
+mod log_score;
+pub use log_score::{LogScoreTool, LogScoreArgs, LogScoreResult};
+
+mod get_score_context;
+pub use get_score_context::{GetScoreContextTool, GetScoreContextArgs, GetScoreContextResult, ScoreEventSummary};
+
 use rig::completion::CompletionModel;
 use rig::tool::ToolDyn;
 use std::sync::Arc;
