@@ -172,5 +172,46 @@ mod tests {
             salience_after, 1.0,
             "Fresh memory (< 1 day old) should not decay"
         );
+
+        // Test FTS5 search with special chars doesn't crash
+        let results = search_memories(&conn, "test-chat".to_string(), "SSH service".to_string(), 10)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1, "Should find the SSH memory");
+        assert_eq!(results[0].id, mem_id);
+
+        // Test search with special chars (should sanitize, not crash)
+        let _results2 = search_memories(
+            &conn,
+            "test-chat".to_string(),
+            "host:192.168".to_string(), // Contains FTS5 special char ":"
+            10,
+        )
+        .await
+        .unwrap();
+        // Should return results or empty, but not crash
+    }
+
+    #[test]
+    fn test_safety_validation() {
+        use crate::safety::{validate_command, sanitize_target};
+
+        // Should block destructive commands
+        assert!(validate_command("rm -rf /").is_err());
+        assert!(validate_command("dd if=/dev/zero of=/dev/sda").is_err());
+        assert!(validate_command("shutdown -h now").is_err());
+
+        // Should allow offensive tools
+        assert!(validate_command("nmap -sS 192.168.1.1").is_ok());
+        assert!(validate_command("hydra -l admin -P pass.txt ssh://target").is_ok());
+
+        // Should block shell metacharacters
+        assert!(validate_command("cat /etc/passwd; rm -rf /").is_err());
+
+        // Should validate targets
+        assert!(sanitize_target("192.168.1.1").is_ok());
+        assert!(sanitize_target("10.0.0.0/24").is_ok());
+        assert!(sanitize_target("example.com").is_ok());
+        assert!(sanitize_target("; rm -rf /").is_err());
     }
 }
