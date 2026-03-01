@@ -230,15 +230,31 @@ pub async fn get_run_summary(
             |row| row.get(0),
         )?;
 
-        // Stub score fields (RED phase - will be implemented in GREEN)
+        // Score fields from score_events table
+        let (total_score, detection_count): (i64, i64) = conn.query_row(
+            "SELECT COALESCE(SUM(points), 0), COALESCE(SUM(CASE WHEN detected = 1 THEN 1 ELSE 0 END), 0) FROM score_events WHERE run_id = ?1",
+            rusqlite::params![run_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let last_score_event: Option<String> = match conn.query_row(
+            "SELECT action FROM score_events WHERE run_id = ?1 ORDER BY id DESC LIMIT 1",
+            rusqlite::params![run_id],
+            |row| row.get(0),
+        ) {
+            Ok(action) => Some(action),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => return Err(e.into()),
+        };
+
         Ok(RunSummary {
             task_count,
             finding_count,
             completed_task_count,
             failed_task_count,
-            total_score: 0,
-            detection_count: 0,
-            last_score_event: None,
+            total_score,
+            detection_count,
+            last_score_event,
         })
     })
     .await
@@ -347,9 +363,20 @@ pub async fn search_memories(
 
 /// Look up point value for a scoring action
 pub fn points_for_action(action: &str) -> Option<i64> {
-    // STUB: returns None for all actions (RED phase)
-    let _ = action;
-    None
+    match action {
+        "host_discovered" => Some(10),
+        "port_found" => Some(5),
+        "service_identified" => Some(15),
+        "os_fingerprinted" => Some(20),
+        "vuln_detected" => Some(25),
+        "credential_captured" => Some(50),
+        "successful_login" => Some(75),
+        "privilege_escalation" => Some(150),
+        "rce_achieved" => Some(200),
+        "data_exfiltrated" => Some(100),
+        "detection" => Some(-100),
+        _ => None,
+    }
 }
 
 /// Log a score event and return its ID
@@ -360,9 +387,20 @@ pub async fn log_score_event(
     risk_level: String,
     detected: bool,
 ) -> Result<i64, MemoryError> {
-    // STUB: always returns error (RED phase)
-    let _ = (conn, run_id, action, risk_level, detected);
-    Err(MemoryError::Query("not implemented".to_string()))
+    let points = points_for_action(&action)
+        .ok_or_else(|| MemoryError::Query(format!("Unknown action type: {}", action)))?;
+    let timestamp = Utc::now().to_rfc3339();
+    let detected_int: i64 = if detected { 1 } else { 0 };
+
+    let err_result = conn.call(move |conn| {
+        conn.execute(
+            "INSERT INTO score_events (run_id, action, points, risk_level, detected, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![run_id, action, points, risk_level, detected_int, timestamp],
+        )?;
+        Ok(conn.last_insert_rowid())
+    })
+    .await;
+    err_result.map_err(MemoryError::from)
 }
 
 /// Get score summary for a run
@@ -370,13 +408,35 @@ pub async fn get_score_summary(
     conn: &Connection,
     run_id: i64,
 ) -> Result<ScoreSummary, MemoryError> {
-    // STUB: returns empty summary (RED phase)
-    let _ = (conn, run_id);
-    Ok(ScoreSummary {
-        total_score: -999,
-        detection_count: -999,
-        recent_events: vec![],
+    conn.call(move |conn| {
+        let (total_score, detection_count): (i64, i64) = conn.query_row(
+            "SELECT COALESCE(SUM(points), 0), COALESCE(SUM(CASE WHEN detected = 1 THEN 1 ELSE 0 END), 0) FROM score_events WHERE run_id = ?1",
+            rusqlite::params![run_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+
+        let mut stmt = conn.prepare(
+            "SELECT action, points, risk_level, detected, timestamp FROM score_events WHERE run_id = ?1 ORDER BY id DESC LIMIT 5"
+        )?;
+        let recent_events = stmt.query_map(rusqlite::params![run_id], |row| {
+            let detected_int: i64 = row.get(3)?;
+            Ok(ScoreEvent {
+                action: row.get(0)?,
+                points: row.get(1)?,
+                risk_level: row.get(2)?,
+                detected: detected_int != 0,
+                timestamp: row.get(4)?,
+            })
+        })?.collect::<Result<Vec<_>, _>>()?;
+
+        Ok(ScoreSummary {
+            total_score,
+            detection_count,
+            recent_events,
+        })
     })
+    .await
+    .map_err(MemoryError::from)
 }
 
 /// Save a script (insert or upsert on name conflict)
@@ -388,9 +448,23 @@ pub async fn save_script(
     tags: String,
     code: String,
 ) -> Result<i64, MemoryError> {
-    // STUB: always returns error (RED phase)
-    let _ = (conn, name, description, language, tags, code);
-    Err(MemoryError::Query("not implemented".to_string()))
+    let now = Utc::now().to_rfc3339();
+
+    let err_result = conn.call(move |conn| {
+        conn.execute(
+            "INSERT INTO scripts (name, description, language, tags, code, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
+             ON CONFLICT(name) DO UPDATE SET \
+                code = excluded.code, \
+                description = excluded.description, \
+                tags = excluded.tags, \
+                updated_at = excluded.updated_at",
+            rusqlite::params![name, description, language, tags, code, now, now],
+        )?;
+        Ok(conn.last_insert_rowid())
+    })
+    .await;
+    err_result.map_err(MemoryError::from)
 }
 
 /// Search scripts using FTS5
@@ -399,9 +473,48 @@ pub async fn search_scripts(
     query: String,
     limit: i64,
 ) -> Result<Vec<Script>, MemoryError> {
-    // STUB: always returns error (RED phase)
-    let _ = (conn, query, limit);
-    Err(MemoryError::Query("not implemented".to_string()))
+    // Sanitize query: remove FTS5 special chars
+    let safe_query = FTS_SANITIZER.replace_all(&query, " ");
+    let words: Vec<&str> = safe_query.split_whitespace().collect();
+
+    if words.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Build FTS5 query: "word1* OR word2*" for prefix matching
+    let fts_query = words
+        .iter()
+        .map(|w| format!("{}*", w))
+        .collect::<Vec<_>>()
+        .join(" OR ");
+
+    conn.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT s.id, s.name, s.description, s.language, s.tags, s.code, s.use_count, s.created_at, s.updated_at, s.last_run_at \
+             FROM scripts s \
+             JOIN scripts_fts f ON s.id = f.rowid \
+             WHERE f.scripts_fts MATCH ?1 \
+             ORDER BY s.use_count DESC \
+             LIMIT ?2"
+        )?;
+        let scripts = stmt.query_map(rusqlite::params![fts_query, limit], |row| {
+            Ok(Script {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2)?,
+                language: row.get(3)?,
+                tags: row.get(4)?,
+                code: row.get(5)?,
+                use_count: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
+                last_run_at: row.get(9)?,
+            })
+        })?.collect::<Result<Vec<_>, _>>()?;
+        Ok(scripts)
+    })
+    .await
+    .map_err(MemoryError::from)
 }
 
 /// Get a script by its unique name
@@ -409,9 +522,33 @@ pub async fn get_script_by_name(
     conn: &Connection,
     name: String,
 ) -> Result<Option<Script>, MemoryError> {
-    // STUB: always returns error (RED phase)
-    let _ = (conn, name);
-    Err(MemoryError::Query("not implemented".to_string()))
+    let err_result = conn.call(move |conn| {
+        match conn.query_row(
+            "SELECT id, name, description, language, tags, code, use_count, created_at, updated_at, last_run_at \
+             FROM scripts WHERE name = ?1",
+            rusqlite::params![name],
+            |row| {
+                Ok(Script {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    description: row.get(2)?,
+                    language: row.get(3)?,
+                    tags: row.get(4)?,
+                    code: row.get(5)?,
+                    use_count: row.get(6)?,
+                    created_at: row.get(7)?,
+                    updated_at: row.get(8)?,
+                    last_run_at: row.get(9)?,
+                })
+            },
+        ) {
+            Ok(script) => Ok(Some(script)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    })
+    .await;
+    err_result.map_err(MemoryError::from)
 }
 
 /// Increment script use_count and set last_run_at
@@ -419,9 +556,17 @@ pub async fn update_script_usage(
     conn: &Connection,
     script_id: i64,
 ) -> Result<(), MemoryError> {
-    // STUB: always returns error (RED phase)
-    let _ = (conn, script_id);
-    Err(MemoryError::Query("not implemented".to_string()))
+    let now = Utc::now().to_rfc3339();
+
+    let err_result = conn.call(move |conn| {
+        conn.execute(
+            "UPDATE scripts SET use_count = use_count + 1, last_run_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, script_id],
+        )?;
+        Ok(())
+    })
+    .await;
+    err_result.map_err(MemoryError::from)
 }
 
 #[cfg(test)]
