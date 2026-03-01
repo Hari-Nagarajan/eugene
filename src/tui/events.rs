@@ -12,12 +12,11 @@ use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 /// Returns `Some(KeyCode)` if a key was pressed within the timeout,
 /// or `None` if no key event occurred.
 pub fn poll_keyboard(timeout: Duration) -> Option<KeyCode> {
-    if event::poll(timeout).ok()? {
-        if let Event::Key(key) = event::read().ok()? {
-            if key.kind == KeyEventKind::Press {
-                return Some(key.code);
-            }
-        }
+    if event::poll(timeout).ok()?
+        && let Event::Key(key) = event::read().ok()?
+        && key.kind == KeyEventKind::Press
+    {
+        return Some(key.code);
     }
     None
 }

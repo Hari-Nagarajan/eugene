@@ -1,9 +1,11 @@
 pub mod agent;
+pub mod bot;
 pub mod cli;
 pub mod config;
 pub mod executor;
 pub mod memory;
 pub mod orchestrator;
 pub mod safety;
+pub mod scheduler;
 pub mod tools;
 pub mod tui;

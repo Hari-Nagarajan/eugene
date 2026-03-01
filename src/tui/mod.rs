@@ -186,15 +186,12 @@ pub async fn run_tui(
         terminal.draw(|frame| widgets::draw_dashboard(frame, &app))?;
 
         // Poll for keyboard events with 100ms timeout
-        if event::poll(Duration::from_millis(100))? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('q') => app.should_quit = true,
-                        _ => {}
-                    }
-                }
-            }
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press
+            && key.code == KeyCode::Char('q')
+        {
+            app.should_quit = true;
         }
 
         // Process agent events (non-blocking drain)
@@ -225,15 +222,15 @@ pub async fn run_tui(
             }
 
             // Poll run summary for progress
-            if let Some(run_id) = tracked_run_id {
-                if let Ok(summary) = get_run_summary(&poll_db, run_id).await {
-                    app.tasks_completed = summary.completed_task_count as usize;
-                    app.tasks_total = summary.task_count as usize;
-                    app.score = summary.total_score;
-                    if app.tasks_total > 0 {
-                        app.progress =
-                            app.tasks_completed as f64 / app.tasks_total as f64;
-                    }
+            if let Some(run_id) = tracked_run_id
+                && let Ok(summary) = get_run_summary(&poll_db, run_id).await
+            {
+                app.tasks_completed = summary.completed_task_count as usize;
+                app.tasks_total = summary.task_count as usize;
+                app.score = summary.total_score;
+                if app.tasks_total > 0 {
+                    app.progress =
+                        app.tasks_completed as f64 / app.tasks_total as f64;
                 }
             }
         }
