@@ -91,17 +91,23 @@ pub async fn init_schema(conn: &Connection) -> Result<(), MemoryError> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn test_phase1_integration() {
-        // Create in-memory database
+    async fn setup() -> std::sync::Arc<tokio_rusqlite::Connection> {
         let conn = open_memory_store(":memory:").await.unwrap();
         init_schema(&conn).await.unwrap();
+        conn
+    }
 
-        // Test run creation
+    #[tokio::test]
+    async fn test_create_run() {
+        let conn = setup().await;
         let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
         assert!(run_id > 0, "create_run should return valid ID");
+    }
 
-        // Test finding logging
+    #[tokio::test]
+    async fn test_log_finding() {
+        let conn = setup().await;
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
         let finding_id = log_finding(
             &conn,
             Some(run_id),
@@ -112,8 +118,11 @@ mod tests {
         .await
         .unwrap();
         assert!(finding_id > 0, "log_finding should return valid ID");
+    }
 
-        // Test memory storage
+    #[tokio::test]
+    async fn test_save_and_search_memory() {
+        let conn = setup().await;
         let mem_id = save_memory(
             &conn,
             "test-chat".to_string(),
@@ -124,7 +133,6 @@ mod tests {
         .unwrap();
         assert!(mem_id > 0, "save_memory should return valid ID");
 
-        // Verify memory was stored with correct defaults
         let (salience, sector): (f64, String) = conn
             .call(move |conn| {
                 let result = conn.query_row(
@@ -139,7 +147,25 @@ mod tests {
         assert_eq!(salience, 1.0, "New memory should have full salience");
         assert_eq!(sector, "episodic");
 
-        // Verify FTS5 trigger created entry
+        let results = search_memories(&conn, "test-chat".to_string(), "SSH service".to_string(), 10)
+            .await
+            .unwrap();
+        assert_eq!(results.len(), 1, "Should find the SSH memory");
+        assert_eq!(results[0].id, mem_id);
+    }
+
+    #[tokio::test]
+    async fn test_fts5_trigger_creates_entry() {
+        let conn = setup().await;
+        let mem_id = save_memory(
+            &conn,
+            "test-chat".to_string(),
+            "FTS5 trigger test content".to_string(),
+            "episodic".to_string(),
+        )
+        .await
+        .unwrap();
+
         let fts_count: i64 = conn
             .call(move |conn| {
                 let count = conn.query_row(
@@ -152,13 +178,23 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(fts_count, 1, "FTS5 trigger should create entry");
+    }
 
-        // Test salience decay
+    #[tokio::test]
+    async fn test_decay_ignores_fresh_memories() {
+        let conn = setup().await;
+        let mem_id = save_memory(
+            &conn,
+            "test-chat".to_string(),
+            "Fresh memory content".to_string(),
+            "episodic".to_string(),
+        )
+        .await
+        .unwrap();
+
         let deleted = run_decay_sweep(&conn).await.unwrap();
-        // Fresh memory shouldn't be deleted yet (created just now)
         assert_eq!(deleted, 0, "Fresh memories should not be pruned");
 
-        // Verify memory still exists with unchanged salience
         let salience_after: f64 = conn
             .call(move |conn| {
                 let salience = conn.query_row(
@@ -174,16 +210,22 @@ mod tests {
             salience_after, 1.0,
             "Fresh memory (< 1 day old) should not decay"
         );
+    }
 
-        // Test FTS5 search with special chars doesn't crash
-        let results = search_memories(&conn, "test-chat".to_string(), "SSH service".to_string(), 10)
-            .await
-            .unwrap();
-        assert_eq!(results.len(), 1, "Should find the SSH memory");
-        assert_eq!(results[0].id, mem_id);
+    #[tokio::test]
+    async fn test_fts5_special_chars_dont_crash() {
+        let conn = setup().await;
+        save_memory(
+            &conn,
+            "test-chat".to_string(),
+            "Found SSH service on target host".to_string(),
+            "episodic".to_string(),
+        )
+        .await
+        .unwrap();
 
-        // Test search with special chars (should sanitize, not crash)
-        let _results2 = search_memories(
+        // Search with special chars (should sanitize, not crash)
+        let _results = search_memories(
             &conn,
             "test-chat".to_string(),
             "host:192.168".to_string(), // Contains FTS5 special char ":"

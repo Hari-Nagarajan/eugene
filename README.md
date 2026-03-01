@@ -4,7 +4,7 @@
   <img src="logo.png" alt="Eugene logo" width="320" />
 </p>
 
-**Autonomous offensive security agent** built on MiniMax M2.5 via rig-core. Point it at a network and it figures out what to do: host discovery, service fingerprinting, credential capture, exploitation — all tracked in SQLite with Telegram C2 and a TUI dashboard.
+**Autonomous offensive security agent** built on MiniMax M2.5 via rig-core. Point it at a network and it figures out what to do: host discovery, service fingerprinting, credential capture, exploitation. All tracked in SQLite with Telegram C2 and a TUI dashboard.
 
 > **Sanctioned use only.** Designed for authorised network environments. Shell injection and Pi-destructive commands are blocked. Everything else is in scope.
 
@@ -30,17 +30,31 @@
 ```mermaid
 graph TD
     CLI["CLI / Telegram / Cron"]
-    MAIN["main.rs\nClap dispatch"]
-    STORE["SQLite MemoryStore\nruns · tasks · findings\nsessions · memories · scheduled_tasks"]
-    ORCH["Orchestrator Agent\n(MiniMax M2.5 via rig)"]
+    MAIN["main.rs
+    Clap dispatch"]
+    STORE["SQLite MemoryStore:
+    · runs
+    · tasks
+    · findings
+    · sessions
+    · memories
+    · scheduled_tasks"]
+    ORCH["Orchestrator Agent (rig)"]
     EXEC1["Executor 1"]
     EXEC2["Executor 2"]
     EXEC3["Executor 3"]
-    TOOLS["Tools\nnmap · hydra · responder\nsqlmap · msfconsole"]
+    TOOLS["Tools:
+    · nmap
+    · hydra
+    · responder
+    · sqlmap 
+    · msfconsole"]
     SSH["SSH\n(Kali Linux Pi)"]
     TG["Telegram C2"]
-    SCHED["Scheduler\n60s poll loop"]
-    TUI["TUI Dashboard\nratatui"]
+    SCHED["Scheduler
+    60s poll loop"]
+    TUI["TUI Dashboard
+    ratatui"]
 
     CLI --> MAIN
     MAIN --> STORE & ORCH & TG & SCHED & TUI
@@ -195,9 +209,3 @@ cargo test              # Run all tests (~160)
 cargo clippy -- -D warnings   # Lint
 cargo fmt               # Format
 ```
-
----
-
-## License
-
-MIT
