@@ -28,7 +28,7 @@ async fn test_schema_initialization() -> Result<(), MemoryError> {
     let table_count: i64 = conn
         .call(|conn| {
             let count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_fts5_%' AND name NOT LIKE 'memories_fts%'",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_fts5_%' AND name NOT LIKE 'memories_fts%' AND name NOT LIKE 'scripts_fts%'",
                 [],
                 |row| row.get(0),
             )?;
@@ -62,6 +62,32 @@ async fn test_schema_initialization() -> Result<(), MemoryError> {
         })
         .await?;
     assert_eq!(trigger_count, 3, "Expected 3 FTS5 sync triggers");
+
+    // Verify scripts_fts virtual table exists
+    let scripts_fts_exists: i64 = conn
+        .call(|conn| {
+            let exists: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='scripts_fts'",
+                [],
+                |row| row.get(0),
+            )?;
+            Ok(exists)
+        })
+        .await?;
+    assert_eq!(scripts_fts_exists, 1, "scripts_fts virtual table should exist");
+
+    // Verify 3 triggers exist for scripts
+    let scripts_trigger_count: i64 = conn
+        .call(|conn| {
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name LIKE 'scripts_a%'",
+                [],
+                |row| row.get(0),
+            )?;
+            Ok(count)
+        })
+        .await?;
+    assert_eq!(scripts_trigger_count, 3, "Expected 3 scripts FTS5 sync triggers");
 
     // Clean up
     drop(conn);

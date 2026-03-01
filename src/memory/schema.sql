@@ -138,6 +138,33 @@ CREATE TABLE IF NOT EXISTS scripts (
 
 CREATE INDEX IF NOT EXISTS idx_scripts_name ON scripts(name);
 
+-- FTS5 virtual table for scripts (external content from scripts table)
+CREATE VIRTUAL TABLE IF NOT EXISTS scripts_fts
+    USING fts5(name, description, tags, content=scripts, content_rowid=id);
+
+-- Trigger: sync FTS5 on insert
+CREATE TRIGGER IF NOT EXISTS scripts_ai
+    AFTER INSERT ON scripts BEGIN
+        INSERT INTO scripts_fts(rowid, name, description, tags)
+        VALUES (new.id, new.name, new.description, new.tags);
+    END;
+
+-- Trigger: sync FTS5 on update (delete old + insert new)
+CREATE TRIGGER IF NOT EXISTS scripts_au
+    AFTER UPDATE ON scripts BEGIN
+        INSERT INTO scripts_fts(scripts_fts, rowid, name, description, tags)
+        VALUES ('delete', old.id, old.name, old.description, old.tags);
+        INSERT INTO scripts_fts(rowid, name, description, tags)
+        VALUES (new.id, new.name, new.description, new.tags);
+    END;
+
+-- Trigger: sync FTS5 on delete
+CREATE TRIGGER IF NOT EXISTS scripts_ad
+    AFTER DELETE ON scripts BEGIN
+        INSERT INTO scripts_fts(scripts_fts, rowid, name, description, tags)
+        VALUES ('delete', old.id, old.name, old.description, old.tags);
+    END;
+
 -- 9. Score Events (CTF-style game scoring)
 CREATE TABLE IF NOT EXISTS score_events (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
