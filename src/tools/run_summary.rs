@@ -12,7 +12,7 @@ use crate::tools::ToolError;
 #[derive(Deserialize)]
 pub struct GetRunSummaryArgs {}
 
-/// Result containing run statistics
+/// Result containing run statistics including scoring data
 #[derive(Serialize)]
 pub struct GetRunSummaryResult {
     /// Total number of tasks in this run
@@ -23,6 +23,10 @@ pub struct GetRunSummaryResult {
     pub completed_task_count: i64,
     /// Number of failed tasks
     pub failed_task_count: i64,
+    /// Total score from scoring events (Phase 5)
+    pub total_score: i64,
+    /// Number of detection events (Phase 5)
+    pub detection_count: i64,
 }
 
 /// Tool for getting summary statistics of the current run.
@@ -70,6 +74,8 @@ impl Tool for GetRunSummaryTool {
             finding_count: summary.finding_count,
             completed_task_count: summary.completed_task_count,
             failed_task_count: summary.failed_task_count,
+            total_score: summary.total_score,
+            detection_count: summary.detection_count,
         })
     }
 }
