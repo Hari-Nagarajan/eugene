@@ -180,8 +180,8 @@ pub async fn get_run_summary(
         let (task_count, completed_task_count, failed_task_count): (i64, i64, i64) = conn.query_row(
             "SELECT \
                 COUNT(*), \
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), \
-                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) \
+                COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0), \
+                COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) \
              FROM tasks WHERE run_id = ?1",
             rusqlite::params![run_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
