@@ -4,7 +4,7 @@
   <img src="logo.png" alt="Eugene logo" width="320" />
 </p>
 
-**Autonomous offensive security agent** powered by [rig-core](https://github.com/0xPlaygrounds/rig). Point it at a network and it figures out what to do: host discovery, service fingerprinting, credential capture, exploitation. All tracked in SQLite with Telegram C2 and a TUI dashboard.
+**Autonomous offensive security agent** powered by [rig-core](https://github.com/0xPlaygrounds/rig). Drop it on a Raspberry Pi running Kali and let it loose. Eugene leverages the full suite of installed offensive security tools, writes custom scripts when needed, and chains operations autonomously — from host discovery through exploitation. Findings persist in SQLite, controllable via Telegram C2 or a TUI dashboard.
 
 > **Sanctioned use only.** Designed for authorised network environments. Shell injection and Pi-destructive commands are blocked. Everything else is in scope.
 
