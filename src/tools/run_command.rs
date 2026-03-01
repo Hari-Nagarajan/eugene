@@ -22,7 +22,7 @@ pub struct RunCommandArgs {
 }
 
 /// Structured result from command execution
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct RunCommandResult {
     /// The command that was executed
     pub command: String,
@@ -199,5 +199,44 @@ mod tests {
         let (result, was_truncated) = truncate_output(short);
         assert!(!was_truncated);
         assert_eq!(result, "hello world");
+    }
+
+    /// Test 4: Timeout override with sleep command
+    #[tokio::test]
+    async fn test_timeout_override() {
+        let tool = make_tool();
+        let result = tool
+            .call(RunCommandArgs {
+                command: "sleep 10".to_string(),
+                timeout_override: Some(1),
+            })
+            .await;
+
+        assert!(result.is_err(), "should timeout");
+        match result.unwrap_err() {
+            ToolError::Timeout(secs) => assert_eq!(secs, 1, "timeout should be 1 second"),
+            other => panic!("expected Timeout, got: {other}"),
+        }
+    }
+
+    /// Test 5: Long output via real command execution is truncated
+    #[tokio::test]
+    async fn test_long_command_output_truncated() {
+        let tool = make_tool();
+        // seq 1 1200 produces ~4893 chars of output (> 4000 threshold)
+        let result = tool
+            .call(RunCommandArgs {
+                command: "seq 1 1200".to_string(),
+                timeout_override: Some(5),
+            })
+            .await
+            .unwrap();
+
+        assert!(result.success, "seq command should succeed");
+        assert!(result.truncated, "output should be truncated");
+        assert!(
+            result.stdout.contains("[... OUTPUT TRUNCATED"),
+            "should contain truncation marker"
+        );
     }
 }
