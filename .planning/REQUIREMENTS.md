@@ -25,14 +25,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Recon Tools
 
-- [ ] **TOOL-01**: nmap scan (stealth SYN, service detection, OS fingerprinting, vuln scripts)
-- [ ] **TOOL-02**: netdiscover scan (ARP enumeration)
-- [ ] **TOOL-03**: DNS recon (dig, nslookup)
-- [ ] **TOOL-04**: ARP table scan
-- [ ] **TOOL-05**: tcpdump capture (passive traffic)
-- [ ] **TOOL-06**: traceroute
-- [ ] **TOOL-07**: whois lookup
-- [ ] **TOOL-08**: log_discovery (structured finding logging to SQLite)
+- [x] **TOOL-01**: nmap scan (stealth SYN, service detection, OS fingerprinting, vuln scripts)
+- [x] **TOOL-02**: netdiscover scan (ARP enumeration)
+- [x] **TOOL-03**: DNS recon (dig, nslookup)
+- [x] **TOOL-04**: ARP table scan
+- [x] **TOOL-05**: tcpdump capture (passive traffic)
+- [x] **TOOL-06**: traceroute
+- [x] **TOOL-07**: whois lookup
+- [x] **TOOL-08**: log_discovery (structured finding logging to SQLite)
 
 ### Memory & Persistence
 
@@ -111,14 +111,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXEC-03 | Phase 1 | Complete |
 | EXEC-04 | Phase 1 | Complete |
 | EXEC-05 | Phase 2 | Complete |
-| TOOL-01 | Phase 2 | Pending |
-| TOOL-02 | Phase 2 | Pending |
-| TOOL-03 | Phase 2 | Pending |
-| TOOL-04 | Phase 2 | Pending |
-| TOOL-05 | Phase 2 | Pending |
-| TOOL-06 | Phase 2 | Pending |
-| TOOL-07 | Phase 2 | Pending |
-| TOOL-08 | Phase 2 | Pending |
+| TOOL-01 | Phase 2 | Complete |
+| TOOL-02 | Phase 2 | Complete |
+| TOOL-03 | Phase 2 | Complete |
+| TOOL-04 | Phase 2 | Complete |
+| TOOL-05 | Phase 2 | Complete |
+| TOOL-06 | Phase 2 | Complete |
+| TOOL-07 | Phase 2 | Complete |
+| TOOL-08 | Phase 2 | Complete |
 | MEM-01 | Phase 1 | Pending |
 | MEM-02 | Phase 1 | Complete |
 | MEM-03 | Phase 1 | Complete |
