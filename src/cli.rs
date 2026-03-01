@@ -22,6 +22,8 @@ pub enum Commands {
     /// Manage scheduled tasks
     #[command(subcommand)]
     Schedule(ScheduleCommands),
+    /// Generate systemd user service file
+    Service,
 }
 
 /// Schedule sub-subcommands for managing cron tasks
@@ -132,5 +134,11 @@ mod tests {
             }
             _ => panic!("Expected Schedule Resume command"),
         }
+    }
+
+    #[test]
+    fn test_cli_service() {
+        let cli = Cli::parse_from(["eugene", "service"]);
+        assert!(matches!(cli.command, Commands::Service));
     }
 }
