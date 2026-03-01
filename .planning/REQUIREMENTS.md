@@ -61,12 +61,12 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Scheduling
 
 - [ ] **SCHD-01**: SQLite-polled task scheduler (60s poll interval, check scheduled_tasks for due items)
-- [ ] **SCHD-02**: Cron-style recurring triggers with configurable schedule (default: every 6 hours)
-- [ ] **SCHD-03**: Schedule CRUD via CLI subcommands and Telegram commands
+- [x] **SCHD-02**: Cron-style recurring triggers with configurable schedule (default: every 6 hours)
+- [x] **SCHD-03**: Schedule CRUD via CLI subcommands and Telegram commands
 
 ### CLI & Output
 
-- [ ] **CLI-01**: Clap CLI with run and schedule subcommands (create/list/delete/pause/resume)
+- [x] **CLI-01**: Clap CLI with run and schedule subcommands (create/list/delete/pause/resume)
 - [ ] **CLI-02**: Rich terminal output with banner, config panel, run lifecycle display via ratatui
 - [ ] **CLI-03**: Systemd user service generator for always-on Pi deployment
 
@@ -135,9 +135,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TELE-04 | Phase 6 | Pending |
 | TELE-05 | Phase 6 | Pending |
 | SCHD-01 | Phase 6 | Pending |
-| SCHD-02 | Phase 6 | Pending |
-| SCHD-03 | Phase 6 | Pending |
-| CLI-01 | Phase 6 | Pending |
+| SCHD-02 | Phase 6 | Complete |
+| SCHD-03 | Phase 6 | Complete |
+| CLI-01 | Phase 6 | Complete |
 | CLI-02 | Phase 6 | Pending |
 | CLI-03 | Phase 6 | Pending |
 

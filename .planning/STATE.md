@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-01T19:24:46.871Z"
+status: in-progress
+last_updated: "2026-03-01T20:17:09.881Z"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 19
+  completed_plans: 16
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Autonomously run multi-phase network reconnaissance and exploitation against a target network, making intelligent decisions without human intervention
-**Current focus:** Phase 5: Scoring & Scripts
+**Current focus:** Phase 6: C2 & Scheduling
 
 ## Current Position
 
-Phase: 5 of 6 (Scoring & Scripts)
-Plan: 3 of 3 in current phase
-Status: Phase Complete
-Last activity: 2026-03-01 -- Completed plan 05-03 (Agent factory wiring and integration tests)
+Phase: 6 of 6 (C2 & Scheduling)
+Plan: 1 of 4 in current phase
+Status: In Progress
+Last activity: 2026-03-01 -- Completed plan 06-01 (Foundation dependencies, CLI, Config, and Session/Schedule CRUD)
 
-Progress: [██████████████████░] 94% (15 of 16 total plans across all phases)
+Progress: [████████████████░░░] 84% (16 of 19 total plans across all phases)
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [██████████████████░] 94% (15 of
 | 05 | 05-01 | 6 min | 2 | 5 | 2026-03-01 |
 | 05 | 05-02 | 5 min | 2 | 6 | 2026-03-01 |
 | 05 | 05-03 | 5 min | 2 | 4 | 2026-03-01 |
+| 06 | 06-01 | 5 min | 2 | 6 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -121,6 +122,9 @@ Recent decisions affecting current work:
 - [Phase 05]: GetScoreContextTool drops timestamp from ScoreEventSummary for conciseness
 - [Phase 05]: RunScriptTool ignores update_script_usage errors (error-as-value pattern for non-critical updates)
 - [Phase 05]: Extended GetRunSummaryResult with total_score and detection_count to surface scoring data through run summary tool
+- [Phase 06]: Env var tests use parsing logic unit tests to avoid test races in Rust 2024 edition
+- [Phase 06]: Croner cron computation happens OUTSIDE conn.call() closure; compute i64 timestamp before DB call
+- [Phase 06]: resume_schedule reads schedule column first then recomputes next_run (two DB calls for croner outside closure)
 
 ### Pending Todos
 
@@ -133,7 +137,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 05-03-PLAN.md (Agent factory wiring and integration tests)
+Stopped at: Completed 06-01-PLAN.md (Foundation dependencies, CLI, Config, and Session/Schedule CRUD)
 Resume file: None
 
-Phase 5 complete. All 3 plans executed: scoring/script queries (05-01), tool implementations (05-02), agent factory wiring + integration tests (05-03). 10 orchestrator tools, 5 executor tools. ORCHESTRATOR_PROMPT has EV risk gating and score-aware strategy. 88 tests passing, zero clippy warnings. Ready for Phase 6.
+Phase 6 plan 1 of 4 complete. Added 8 dependencies (teloxide, clap, ratatui, croner, uuid, log, pretty_env_logger, crossterm). Created Cli/Commands/ScheduleCommands clap derive structs. Extended Config with from_env() for 4 env vars. Implemented 10 session/schedule CRUD functions with croner cron validation. 87 tests passing, zero clippy warnings. Ready for plan 06-02 (Telegram bot).
