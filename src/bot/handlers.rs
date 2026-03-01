@@ -46,157 +46,16 @@ async fn handle_schedule_command(
     text: &str,
     state: &BotState,
 ) -> ResponseResult<()> {
-    // Parse: /schedule <subcommand> [args...]
     let parts: Vec<&str> = text.splitn(3, ' ').collect();
     let subcommand = parts.get(1).unwrap_or(&"help").trim();
 
+    let id_arg = parts.get(2).unwrap_or(&"").trim();
+
     match subcommand {
-        "create" => {
-            // /schedule create <cron> <prompt>
-            // The cron expression is 5 fields, so we need to split carefully
-            let rest = parts.get(2).unwrap_or(&"").trim();
-            if rest.is_empty() {
-                bot.send_message(
-                    chat_id,
-                    "Usage: /schedule create &lt;cron&gt; &lt;prompt&gt;\n\
-                     Example: /schedule create 0 */6 * * * scan the network",
-                )
-                .parse_mode(ParseMode::Html)
-                .await?;
-                return Ok(());
-            }
-
-            // Try to parse 5 cron fields from the beginning
-            let tokens: Vec<&str> = rest.splitn(6, ' ').collect();
-            if tokens.len() < 6 {
-                bot.send_message(
-                    chat_id,
-                    "Need 5 cron fields + prompt.\n\
-                     Example: /schedule create 0 */6 * * * scan the network",
-                )
-                .parse_mode(ParseMode::Html)
-                .await?;
-                return Ok(());
-            }
-
-            let cron_expr = format!(
-                "{} {} {} {} {}",
-                tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]
-            );
-            let prompt = tokens[5].to_string();
-
-            // Validate cron
-            if let Err(e) = validate_cron(&cron_expr) {
-                bot.send_message(
-                    chat_id,
-                    format!("Invalid cron expression: {}", escape_html(&e)),
-                )
-                .parse_mode(ParseMode::Html)
-                .await?;
-                return Ok(());
-            }
-
-            match create_schedule(&state.db, chat_id_str.to_string(), cron_expr.clone(), prompt)
-                .await
-            {
-                Ok(id) => {
-                    bot.send_message(
-                        chat_id,
-                        format!(
-                            "Schedule created: <code>{}</code>\nCron: <code>{}</code>",
-                            escape_html(&id[..8.min(id.len())]),
-                            escape_html(&cron_expr)
-                        ),
-                    )
-                    .parse_mode(ParseMode::Html)
-                    .await?;
-                }
-                Err(e) => {
-                    bot.send_message(
-                        chat_id,
-                        format!("Error creating schedule: {}", escape_html(&e.to_string())),
-                    )
-                    .await?;
-                }
-            }
-        }
-        "list" => {
-            match list_schedules(&state.db, chat_id_str.to_string()).await {
-                Ok(schedules) => {
-                    let html = format_schedule_list(&schedules);
-                    send_chunked(bot, chat_id, &html).await?;
-                }
-                Err(e) => {
-                    bot.send_message(
-                        chat_id,
-                        format!("Error listing schedules: {}", escape_html(&e.to_string())),
-                    )
-                    .await?;
-                }
-            }
-        }
-        "delete" => {
-            let id = parts.get(2).unwrap_or(&"").trim().to_string();
-            if id.is_empty() {
-                bot.send_message(chat_id, "Usage: /schedule delete &lt;id&gt;")
-                    .parse_mode(ParseMode::Html)
-                    .await?;
-                return Ok(());
-            }
-            match delete_schedule(&state.db, id.clone()).await {
-                Ok(_) => {
-                    bot.send_message(chat_id, "Schedule deleted.").await?;
-                }
-                Err(e) => {
-                    bot.send_message(
-                        chat_id,
-                        format!("Error: {}", escape_html(&e.to_string())),
-                    )
-                    .await?;
-                }
-            }
-        }
-        "pause" => {
-            let id = parts.get(2).unwrap_or(&"").trim().to_string();
-            if id.is_empty() {
-                bot.send_message(chat_id, "Usage: /schedule pause &lt;id&gt;")
-                    .parse_mode(ParseMode::Html)
-                    .await?;
-                return Ok(());
-            }
-            match pause_schedule(&state.db, id.clone()).await {
-                Ok(_) => {
-                    bot.send_message(chat_id, "Schedule paused.").await?;
-                }
-                Err(e) => {
-                    bot.send_message(
-                        chat_id,
-                        format!("Error: {}", escape_html(&e.to_string())),
-                    )
-                    .await?;
-                }
-            }
-        }
-        "resume" => {
-            let id = parts.get(2).unwrap_or(&"").trim().to_string();
-            if id.is_empty() {
-                bot.send_message(chat_id, "Usage: /schedule resume &lt;id&gt;")
-                    .parse_mode(ParseMode::Html)
-                    .await?;
-                return Ok(());
-            }
-            match resume_schedule(&state.db, id.clone()).await {
-                Ok(_) => {
-                    bot.send_message(chat_id, "Schedule resumed.").await?;
-                }
-                Err(e) => {
-                    bot.send_message(
-                        chat_id,
-                        format!("Error: {}", escape_html(&e.to_string())),
-                    )
-                    .await?;
-                }
-            }
+        "create" => handle_schedule_create(bot, chat_id, chat_id_str, id_arg, state).await,
+        "list" => handle_schedule_list(bot, chat_id, chat_id_str, state).await,
+        "delete" | "pause" | "resume" => {
+            handle_schedule_mutate(bot, chat_id, subcommand, id_arg, &state.db).await
         }
         _ => {
             bot.send_message(
@@ -210,9 +69,138 @@ async fn handle_schedule_command(
             )
             .parse_mode(ParseMode::Html)
             .await?;
+            Ok(())
         }
     }
+}
 
+async fn handle_schedule_create(
+    bot: &Bot,
+    chat_id: ChatId,
+    chat_id_str: &str,
+    rest: &str,
+    state: &BotState,
+) -> ResponseResult<()> {
+    if rest.is_empty() {
+        bot.send_message(
+            chat_id,
+            "Usage: /schedule create &lt;cron&gt; &lt;prompt&gt;\n\
+             Example: /schedule create 0 */6 * * * scan the network",
+        )
+        .parse_mode(ParseMode::Html)
+        .await?;
+        return Ok(());
+    }
+
+    let tokens: Vec<&str> = rest.splitn(6, ' ').collect();
+    if tokens.len() < 6 {
+        bot.send_message(
+            chat_id,
+            "Need 5 cron fields + prompt.\n\
+             Example: /schedule create 0 */6 * * * scan the network",
+        )
+        .parse_mode(ParseMode::Html)
+        .await?;
+        return Ok(());
+    }
+
+    let cron_expr = format!(
+        "{} {} {} {} {}",
+        tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]
+    );
+    let prompt = tokens[5].to_string();
+
+    if let Err(e) = validate_cron(&cron_expr) {
+        bot.send_message(
+            chat_id,
+            format!("Invalid cron expression: {}", escape_html(&e)),
+        )
+        .parse_mode(ParseMode::Html)
+        .await?;
+        return Ok(());
+    }
+
+    match create_schedule(&state.db, chat_id_str.to_string(), cron_expr.clone(), prompt).await {
+        Ok(id) => {
+            bot.send_message(
+                chat_id,
+                format!(
+                    "Schedule created: <code>{}</code>\nCron: <code>{}</code>",
+                    escape_html(&id[..8.min(id.len())]),
+                    escape_html(&cron_expr)
+                ),
+            )
+            .parse_mode(ParseMode::Html)
+            .await?;
+        }
+        Err(e) => {
+            bot.send_message(
+                chat_id,
+                format!("Error creating schedule: {}", escape_html(&e.to_string())),
+            )
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+async fn handle_schedule_list(
+    bot: &Bot,
+    chat_id: ChatId,
+    chat_id_str: &str,
+    state: &BotState,
+) -> ResponseResult<()> {
+    match list_schedules(&state.db, chat_id_str.to_string()).await {
+        Ok(schedules) => {
+            let html = format_schedule_list(&schedules);
+            send_chunked(bot, chat_id, &html).await?;
+        }
+        Err(e) => {
+            bot.send_message(
+                chat_id,
+                format!("Error listing schedules: {}", escape_html(&e.to_string())),
+            )
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+/// Handle delete/pause/resume — all follow the same id + action pattern.
+async fn handle_schedule_mutate(
+    bot: &Bot,
+    chat_id: ChatId,
+    action: &str,
+    id: &str,
+    db: &tokio_rusqlite::Connection,
+) -> ResponseResult<()> {
+    if id.is_empty() {
+        bot.send_message(chat_id, format!("Usage: /schedule {} &lt;id&gt;", action))
+            .parse_mode(ParseMode::Html)
+            .await?;
+        return Ok(());
+    }
+    let id = id.to_string();
+    let result = match action {
+        "delete" => delete_schedule(db, id).await,
+        "pause" => pause_schedule(db, id).await,
+        _ => resume_schedule(db, id).await,
+    };
+    let past_tense = match action {
+        "pause" => "paused",
+        "resume" => "resumed",
+        _ => "deleted",
+    };
+    match result {
+        Ok(_) => {
+            bot.send_message(chat_id, format!("Schedule {}.", past_tense))
+                .await?;
+        }
+        Err(e) => {
+            bot.send_message(chat_id, format!("Error: {}", escape_html(&e.to_string())))
+                .await?;
+        }
+    }
     Ok(())
 }
 
