@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-last_updated: "2026-03-01T20:17:09.881Z"
+status: complete
+last_updated: "2026-03-01T20:35:24Z"
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 19
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Autonomously run multi-phase network reconnaissance and exploitation against a target network, making intelligent decisions without human intervention
-**Current focus:** Phase 6: C2 & Scheduling
+**Current focus:** All phases complete
 
 ## Current Position
 
 Phase: 6 of 6 (C2 & Scheduling)
-Plan: 3 of 4 in current phase
-Status: In Progress
-Last activity: 2026-03-01 -- Completed plan 06-03 (TUI Dashboard with ratatui)
+Plan: 4 of 4 in current phase
+Status: Complete
+Last activity: 2026-03-01 -- Completed plan 06-04 (CLI Dispatch, Systemd Service, Integration Tests)
 
-Progress: [██████████████████░] 95% (18 of 19 total plans across all phases)
+Progress: [████████████████████] 100% (19 of 19 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 18
-- Average duration: 15.8 minutes
-- Total execution time: 4.58 hours
+- Total plans completed: 19
+- Average duration: 15.3 minutes
+- Total execution time: 4.65 hours
 
 **By Phase:**
 
@@ -45,6 +45,7 @@ Progress: [██████████████████░] 95% (18 of
 | Phase 3 | 2 | 8 min | 4.0 min |
 | Phase 4 | 3 | 14 min | 4.7 min |
 | Phase 5 | 3 | 16 min | 5.3 min |
+| Phase 6 | 4 | 23 min | 5.8 min |
 
 **Recent Plans:**
 
@@ -68,6 +69,7 @@ Progress: [██████████████████░] 95% (18 of
 | 06 | 06-01 | 5 min | 2 | 6 | 2026-03-01 |
 | 06 | 06-02 | 7 min | 2 | 8 | 2026-03-01 |
 | 06 | 06-03 | 7 min | 2 | 5 | 2026-03-01 |
+| 06 | 06-04 | 4 min | 2 | 5 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -134,6 +136,8 @@ Recent decisions affecting current work:
 - [Phase 06]: DB polling every 2s for TUI progress since rig agent loop lacks per-step callbacks
 - [Phase 06]: ratatui::try_init()/restore() for terminal lifecycle (built-in panic hook restores terminal)
 - [Phase 06]: TestBackend buffer-to-string assertion pattern for widget rendering tests
+- [Phase 06]: Schedule CLI uses "cli" as chat_id for CLI-created schedules (distinct from Telegram chat_ids)
+- [Phase 06]: generate_service_content() split from generate_service() for testability without filesystem writes
 
 ### Pending Todos
 
@@ -146,7 +150,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 06-03-PLAN.md (TUI Dashboard with ratatui)
+Stopped at: Completed 06-04-PLAN.md (CLI Dispatch, Systemd Service, Integration Tests)
 Resume file: None
 
-Phase 6 plan 3 of 4 complete. Created full-screen ratatui TUI dashboard with 6-section layout (banner, status, progress gauge, findings table, activity log, help bar). AgentEvent enum and App state for async agent-to-TUI communication. DB polling every 2s for progress. 17 TUI tests, zero clippy warnings. Ready for plan 06-04 (systemd service).
+All 19 plans across 6 phases complete. Phase 6 plan 4 of 4: Rewrote main.rs with clap dispatch to run/bot/schedule/service. Created systemd user service generator. Added 14 integration tests for session, schedule, cron, and service. 160 total tests passing, zero clippy warnings. Project milestone v1.0 complete.
