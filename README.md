@@ -1,96 +1,202 @@
 # Eugene
 
-Autonomous offensive security agent for Raspberry Pi. Rust rewrite of entropy-goblin.
+<p align="center">
+  <img src="logo.png" alt="Eugene logo" width="320" />
+</p>
 
-## Building
+**Autonomous offensive security agent** built on MiniMax M2.5 via rig-core. Point it at a network and it figures out what to do: host discovery, service fingerprinting, credential capture, exploitation — all tracked in SQLite with Telegram C2 and a TUI dashboard.
 
-### Native Build (macOS/Linux x86_64)
+> **Sanctioned use only.** Designed for authorised network environments. Shell injection and Pi-destructive commands are blocked. Everything else is in scope.
 
-```bash
-cargo build --release
-./target/release/eugene
+---
+
+## Features
+
+| | |
+|---|---|
+| **Planner/Executor architecture** | Orchestrator breaks work into parallel tasks; specialist executor agents run each one independently via tokio + semaphore-bounded concurrency |
+| **Persistent SQLite memory** | Runs, tasks, findings, sessions, memories, and scheduled tasks — all local, no cloud. FTS5 full-text search with salience decay |
+| **Telegram C2** | Trigger runs, chat with the agent, query findings, and manage schedules from your phone |
+| **Session resumption** | Every Telegram chat maps to a persisted conversation thread; the agent picks up exactly where it left off |
+| **Task scheduler** | Create recurring autonomous missions with cron expressions; results pushed to Telegram |
+| **TUI dashboard** | Full-screen ratatui dashboard with progress gauge, findings table, activity log, and real-time DB polling |
+| **Safety layer** | Shell metachar injection prevention + hard block on filesystem/shutdown commands — all offensive tools unrestricted |
+| **Systemd service** | One command generates a `systemd` user service for always-on operation on Raspberry Pi |
+
+---
+
+## Architecture
+
+```mermaid
+graph TD
+    CLI["CLI / Telegram / Cron"]
+    MAIN["main.rs\nClap dispatch"]
+    STORE["SQLite MemoryStore\nruns · tasks · findings\nsessions · memories · scheduled_tasks"]
+    ORCH["Orchestrator Agent\n(MiniMax M2.5 via rig)"]
+    EXEC1["Executor 1"]
+    EXEC2["Executor 2"]
+    EXEC3["Executor 3"]
+    TOOLS["Tools\nnmap · hydra · responder\nsqlmap · msfconsole"]
+    SSH["SSH\n(Kali Linux Pi)"]
+    TG["Telegram C2"]
+    SCHED["Scheduler\n60s poll loop"]
+    TUI["TUI Dashboard\nratatui"]
+
+    CLI --> MAIN
+    MAIN --> STORE & ORCH & TG & SCHED & TUI
+    ORCH -->|"dispatch tasks"| EXEC1 & EXEC2 & EXEC3
+    EXEC1 & EXEC2 & EXEC3 --> TOOLS
+    TOOLS --> SSH
+    ORCH -->|"log_discovery()"| STORE
+    ORCH -->|"status update"| TG
+    SCHED -->|"due tasks"| ORCH
+    SCHED --> TG
+    TUI -->|"poll every 2s"| STORE
 ```
 
-### ARM Build (Raspberry Pi)
+---
 
-**Option 1: Using cross (recommended on macOS)**
+## Installation
+
+**Requirements:** Rust 2024 edition, [cargo](https://rustup.rs/).
 
 ```bash
+git clone <your-repo-url> eugene
+cd eugene
+cargo build --release
+cp .env.example .env
+$EDITOR .env  # add MINIMAX_API_KEY at minimum
+```
+
+### ARM cross-compilation (Raspberry Pi)
+
+```bash
+# Using cross (recommended on macOS)
 cargo install cross
 cross build --target=aarch64-unknown-linux-gnu --release
-```
 
-**Option 2: Native toolchain**
-
-```bash
-# Requires aarch64-linux-gnu-gcc linker
-cargo build --target=aarch64-unknown-linux-gnu --release
-```
-
-**Note:** On macOS, native ARM cross-compilation requires the `aarch64-linux-gnu-gcc` linker, which is not available by default. The `cross` tool provides a Docker-based cross-compilation environment that works out of the box.
-
-## Deployment to Pi
-
-```bash
-# Copy binary to Pi over Tailscale
+# Deploy to Pi over Tailscale
 scp target/aarch64-unknown-linux-gnu/release/eugene kali@100.99.249.70:/home/kali/
-
-# SSH to Pi and run
-ssh kali@100.99.249.70
-./eugene --help
 ```
 
-## Features (Phase 1)
+### Always-on service (Raspberry Pi)
 
-- Async-safe SQLite with tokio-rusqlite
-- FTS5 full-text search for memories
-- Salience decay for memory management
-- Safety layer (blocks Pi-destructive commands, allows offensive tools)
-- 10-table schema (runs, tasks, findings, memories, etc.)
+```bash
+eugene service
 
-## Phase 2: Tool System
+systemctl --user daemon-reload
+systemctl --user enable eugene
+systemctl --user start eugene
 
-**Status:** Complete
+sudo loginctl enable-linger $USER   # survive logout
 
-Tool system implemented with single command execution approach:
-- **RunCommandTool**: Executes any CLI command (nmap, dig, arp, etc.) via tokio::process with safety validation and configurable timeouts
-- **LogDiscoveryTool**: Persists structured findings to SQLite with FTS5 searchability
-- **LocalExecutor**: Async command execution with timeout enforcement and error classification
-- **Config**: Per-tool timeout defaults (nmap=300s, tcpdump=30s, whois=15s, etc.)
+journalctl --user -u eugene -f   # tail logs
+```
 
-Unlike the original Python version's 8 separate tool structs, Eugene uses a single generic command runner. The agent constructs commands itself based on its system prompt.
+---
 
-**Next:** Phase 3 -- Single Agent Integration (MiniMax M2.5 + rig)
+## Quick Start
+
+```bash
+# One-shot recon run (launches TUI dashboard)
+eugene run 10.0.0.0/24
+
+# Custom target
+eugene run 192.168.1.0/24
+
+# Telegram C2 bot (includes scheduler)
+eugene bot
+
+# Create a recurring scheduled task
+eugene schedule create --cron "0 9 * * *" "scan for new hosts on the network"
+
+# List scheduled tasks
+eugene schedule list
+```
+
+---
+
+## Configuration
+
+Key environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MINIMAX_API_KEY` | — | MiniMax API key **(required)** |
+| `TELEGRAM_BOT_TOKEN` | — | Telegram bot token |
+| `ALLOWED_CHAT_IDS` | — | Comma-separated allowed Telegram chat IDs |
+| `EUGENE_DB_PATH` | `eugene.db` | SQLite database path |
+
+---
+
+## Telegram C2
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Show help and command list |
+| `/run [instruction]` | Trigger a full recon campaign |
+| `/status` | Show last run summary with findings count |
+| `/findings [host]` | Query findings, optionally filtered by host |
+| `/newchat` | Clear conversation history |
+| `/schedule create <cron> <prompt>` | Create a recurring task |
+| `/schedule list` / `pause` / `resume` / `delete` | Manage tasks |
+
+Any non-command message is passed directly to the orchestrator as a natural-language instruction.
+
+---
+
+## CLI Reference
+
+```
+eugene <COMMAND>
+
+Commands:
+  run       Run a one-shot recon task (launches TUI dashboard)
+  bot       Start the Telegram bot (includes scheduler)
+  schedule  Manage scheduled tasks
+  service   Generate systemd user service file
+
+Schedule subcommands:
+  create --cron <CRON> <PROMPT>   Create scheduled task with 5-field cron
+  list                            List all scheduled tasks
+  delete <ID>                     Delete task by UUID
+  pause <ID>                      Pause a task
+  resume <ID>                     Resume a paused task
+```
+
+---
+
+## Project Structure
+
+```
+src/
+├── main.rs           # Entry point, clap dispatch
+├── cli.rs            # Subcommand definitions
+├── config.rs         # Environment configuration
+├── service.rs        # Systemd service generator
+├── lib.rs            # Library exports
+├── agent/            # LLM agent orchestration (MiniMax M2.5 via rig)
+├── bot/              # Telegram bot (teloxide + dptree)
+├── executor/         # Command execution with timeout enforcement
+├── memory/           # SQLite store with FTS5 and salience decay
+├── orchestrator/     # Campaign orchestration and parallel dispatch
+├── safety/           # Command validation (blocks destructive, allows offensive)
+├── scheduler/        # Cron-based task scheduling (croner)
+├── tools/            # Agent tool definitions (run_command, log_discovery, ...)
+└── tui/              # Ratatui dashboard with real-time DB polling
+```
+
+---
 
 ## Development
 
 ```bash
-# Run tests
-cargo test
-
-# Check code
-cargo check --all-features
-
-# Format
-cargo fmt
+cargo test              # Run all tests (~160)
+cargo clippy -- -D warnings   # Lint
+cargo fmt               # Format
 ```
 
-## Architecture
-
-- **Memory Store:** SQLite with FTS5 for long-term memory
-  - Salience-based decay (2% per day for memories older than 1 day)
-  - Automatic pruning of memories below 0.1 salience
-  - Full-text search with special character sanitization
-- **Safety Layer:** Validates commands before execution
-  - Blocks destructive commands (rm -rf, dd, shutdown, etc.)
-  - Allows offensive tools (nmap, hydra, sqlmap, etc.)
-  - Prevents shell metacharacter injection
-- **Tool System:** rig Tool trait implementations for agent interaction
-  - `RunCommandTool`: Generic CLI execution with per-tool timeouts and output truncation
-  - `LogDiscoveryTool`: Structured finding persistence to SQLite
-  - `make_all_tools()` factory for agent registration
-  - 6-variant `ToolError` enum for agent error reasoning
-- **Agent Framework:** rig-core for LLM integration (Phase 3+)
+---
 
 ## License
 
