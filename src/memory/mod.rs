@@ -1,6 +1,12 @@
 mod errors;
 pub use errors::MemoryError;
 
+mod queries;
+pub use queries::{Memory, Finding, create_run, log_finding, save_memory};
+
+mod decay;
+pub use decay::{spawn_decay_task, run_decay_sweep};
+
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
 
