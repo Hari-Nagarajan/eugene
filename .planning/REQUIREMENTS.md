@@ -52,22 +52,22 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Telegram C2
 
-- [ ] **TELE-01**: Telegram bot with persistent sessions and conversation memory per chat_id
-- [ ] **TELE-02**: Commands: /start (help), /run (trigger recon), /status (last run), /findings (query DB), /newchat (clear history)
-- [ ] **TELE-03**: Schedule commands: /schedule create <cron> <prompt>, /schedule list, /schedule delete/pause/resume <id>
-- [ ] **TELE-04**: Typing indicators and HTML formatting for messages
-- [ ] **TELE-05**: Session resumption across bot restarts (messages_json in sessions table)
+- [x] **TELE-01**: Telegram bot with persistent sessions and conversation memory per chat_id
+- [x] **TELE-02**: Commands: /start (help), /run (trigger recon), /status (last run), /findings (query DB), /newchat (clear history)
+- [x] **TELE-03**: Schedule commands: /schedule create <cron> <prompt>, /schedule list, /schedule delete/pause/resume <id>
+- [x] **TELE-04**: Typing indicators and HTML formatting for messages
+- [x] **TELE-05**: Session resumption across bot restarts (messages_json in sessions table)
 
 ### Scheduling
 
-- [ ] **SCHD-01**: SQLite-polled task scheduler (60s poll interval, check scheduled_tasks for due items)
+- [x] **SCHD-01**: SQLite-polled task scheduler (60s poll interval, check scheduled_tasks for due items)
 - [x] **SCHD-02**: Cron-style recurring triggers with configurable schedule (default: every 6 hours)
 - [x] **SCHD-03**: Schedule CRUD via CLI subcommands and Telegram commands
 
 ### CLI & Output
 
 - [x] **CLI-01**: Clap CLI with run and schedule subcommands (create/list/delete/pause/resume)
-- [ ] **CLI-02**: Rich terminal output with banner, config panel, run lifecycle display via ratatui
+- [x] **CLI-02**: Rich terminal output with banner, config panel, run lifecycle display via ratatui
 - [ ] **CLI-03**: Systemd user service generator for always-on Pi deployment
 
 ## v2 Requirements
@@ -129,16 +129,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCOR-02 | Phase 5 | Complete |
 | SCOR-03 | Phase 5 | Complete |
 | SCOR-04 | Phase 5 | Complete |
-| TELE-01 | Phase 6 | Pending |
-| TELE-02 | Phase 6 | Pending |
-| TELE-03 | Phase 6 | Pending |
-| TELE-04 | Phase 6 | Pending |
-| TELE-05 | Phase 6 | Pending |
-| SCHD-01 | Phase 6 | Pending |
+| TELE-01 | Phase 6 | Complete |
+| TELE-02 | Phase 6 | Complete |
+| TELE-03 | Phase 6 | Complete |
+| TELE-04 | Phase 6 | Complete |
+| TELE-05 | Phase 6 | Complete |
+| SCHD-01 | Phase 6 | Complete |
 | SCHD-02 | Phase 6 | Complete |
 | SCHD-03 | Phase 6 | Complete |
 | CLI-01 | Phase 6 | Complete |
-| CLI-02 | Phase 6 | Pending |
+| CLI-02 | Phase 6 | Complete |
 | CLI-03 | Phase 6 | Pending |
 
 **Coverage:**

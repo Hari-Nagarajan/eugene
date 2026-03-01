@@ -8,7 +8,7 @@ progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 19
-  completed_plans: 16
+  completed_plans: 18
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 6 of 6 (C2 & Scheduling)
-Plan: 1 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In Progress
-Last activity: 2026-03-01 -- Completed plan 06-01 (Foundation dependencies, CLI, Config, and Session/Schedule CRUD)
+Last activity: 2026-03-01 -- Completed plan 06-03 (TUI Dashboard with ratatui)
 
-Progress: [████████████████░░░] 84% (16 of 19 total plans across all phases)
+Progress: [██████████████████░] 95% (18 of 19 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15
-- Average duration: 17.5 minutes
-- Total execution time: 4.27 hours
+- Total plans completed: 18
+- Average duration: 15.8 minutes
+- Total execution time: 4.58 hours
 
 **By Phase:**
 
@@ -66,6 +66,8 @@ Progress: [████████████████░░░] 84% (16 of
 | 05 | 05-02 | 5 min | 2 | 6 | 2026-03-01 |
 | 05 | 05-03 | 5 min | 2 | 4 | 2026-03-01 |
 | 06 | 06-01 | 5 min | 2 | 6 | 2026-03-01 |
+| 06 | 06-02 | 7 min | 2 | 8 | 2026-03-01 |
+| 06 | 06-03 | 7 min | 2 | 5 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -125,6 +127,13 @@ Recent decisions affecting current work:
 - [Phase 06]: Env var tests use parsing logic unit tests to avoid test races in Rust 2024 edition
 - [Phase 06]: Croner cron computation happens OUTSIDE conn.call() closure; compute i64 timestamp before DB call
 - [Phase 06]: resume_schedule reads schedule column first then recomputes next_run (two DB calls for croner outside closure)
+- [Phase 06]: Raw Bot type (not DefaultParseMode<Bot>) used throughout; HTML parse mode set per-message to avoid type mismatches
+- [Phase 06]: Bot and scheduler modules committed together as single compile unit (scheduler is compile-time dep of bot)
+- [Phase 06]: Session history capped at 50 messages to prevent unbounded context growth
+- [Phase 06]: Use ratatui::crossterm re-export instead of direct crossterm dependency (avoids version mismatch)
+- [Phase 06]: DB polling every 2s for TUI progress since rig agent loop lacks per-step callbacks
+- [Phase 06]: ratatui::try_init()/restore() for terminal lifecycle (built-in panic hook restores terminal)
+- [Phase 06]: TestBackend buffer-to-string assertion pattern for widget rendering tests
 
 ### Pending Todos
 
@@ -137,7 +146,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 06-01-PLAN.md (Foundation dependencies, CLI, Config, and Session/Schedule CRUD)
+Stopped at: Completed 06-03-PLAN.md (TUI Dashboard with ratatui)
 Resume file: None
 
-Phase 6 plan 1 of 4 complete. Added 8 dependencies (teloxide, clap, ratatui, croner, uuid, log, pretty_env_logger, crossterm). Created Cli/Commands/ScheduleCommands clap derive structs. Extended Config with from_env() for 4 env vars. Implemented 10 session/schedule CRUD functions with croner cron validation. 87 tests passing, zero clippy warnings. Ready for plan 06-02 (Telegram bot).
+Phase 6 plan 3 of 4 complete. Created full-screen ratatui TUI dashboard with 6-section layout (banner, status, progress gauge, findings table, activity log, help bar). AgentEvent enum and App state for async agent-to-TUI communication. DB polling every 2s for progress. 17 TUI tests, zero clippy warnings. Ready for plan 06-04 (systemd service).
