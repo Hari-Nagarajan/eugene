@@ -5,6 +5,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
 
+use crate::memory::save_script;
 use crate::tools::ToolError;
 
 /// Arguments for the save_script tool
@@ -90,8 +91,35 @@ impl Tool for SaveScriptTool {
         }
     }
 
-    async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
-        todo!("SaveScriptTool::call not yet implemented")
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        // Validate language
+        if args.language != "bash" && args.language != "python" {
+            return Err(ToolError::ExecutionFailed(format!(
+                "Unsupported language: {}. Must be 'bash' or 'python'.",
+                args.language
+            )));
+        }
+
+        let tags = args.tags.unwrap_or_else(|| "[]".to_string());
+        let name = args.name.clone();
+
+        let script_id = save_script(
+            &self.memory,
+            args.name,
+            args.description,
+            args.language,
+            tags,
+            args.code,
+        )
+        .await?;
+
+        let saved_at = chrono::Utc::now().to_rfc3339();
+
+        Ok(SaveScriptResult {
+            script_id,
+            name,
+            saved_at,
+        })
     }
 }
 

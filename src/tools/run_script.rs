@@ -81,8 +81,64 @@ impl Tool for RunScriptTool {
         }
     }
 
-    async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
-        todo!("RunScriptTool::call not yet implemented")
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        // Fetch script from database
+        let script = get_script_by_name(&self.memory, args.name.clone())
+            .await?
+            .ok_or_else(|| {
+                ToolError::ExecutionFailed(format!("Script not found: {}", args.name))
+            })?;
+
+        // Determine file suffix and interpreter based on language
+        let (suffix, interpreter) = match script.language.as_str() {
+            "bash" => (".sh", "bash"),
+            "python" => (".py", "python3"),
+            _ => {
+                return Err(ToolError::ExecutionFailed(format!(
+                    "Unsupported script language: {}",
+                    script.language
+                )));
+            }
+        };
+
+        // Create temp file with appropriate suffix
+        let mut tmp = tempfile::Builder::new()
+            .prefix("eugene-script-")
+            .suffix(suffix)
+            .tempfile()
+            .map_err(|e| ToolError::ExecutionFailed(format!("Failed to create temp file: {}", e)))?;
+
+        // Write script code to temp file
+        tmp.write_all(script.code.as_bytes())
+            .map_err(|e| ToolError::ExecutionFailed(format!("Failed to write script: {}", e)))?;
+
+        // Execute via interpreter (not direct execution -- avoids permission issues)
+        let timeout_secs = args.timeout.unwrap_or(60);
+        let child = tokio::process::Command::new(interpreter)
+            .arg(tmp.path())
+            .output();
+
+        let output = tokio::time::timeout(
+            std::time::Duration::from_secs(timeout_secs),
+            child,
+        )
+        .await
+        .map_err(|_| ToolError::Timeout(timeout_secs))?
+        .map_err(|e| ToolError::ExecutionFailed(format!("Failed to execute script: {}", e)))?;
+
+        // Update usage count (ignore errors -- entropy-goblin error-as-value pattern)
+        let _ = update_script_usage(&self.memory, script.id).await;
+
+        let exit_code = output.status.code().unwrap_or(-1);
+
+        // Temp file auto-cleaned on drop when `tmp` goes out of scope
+        Ok(RunScriptResult {
+            name: args.name,
+            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            exit_code,
+            success: exit_code == 0,
+        })
     }
 }
 

@@ -5,6 +5,7 @@ use serde_json::json;
 use std::sync::Arc;
 use tokio_rusqlite::Connection;
 
+use crate::memory::search_scripts;
 use crate::tools::ToolError;
 
 /// Arguments for the search_scripts tool
@@ -82,8 +83,27 @@ impl Tool for SearchScriptsTool {
         }
     }
 
-    async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
-        todo!("SearchScriptsTool::call not yet implemented")
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        let limit = args.limit.unwrap_or(10);
+
+        let scripts = search_scripts(&self.memory, args.query, limit).await?;
+
+        let summaries: Vec<ScriptSummary> = scripts
+            .into_iter()
+            .map(|s| ScriptSummary {
+                name: s.name,
+                description: s.description,
+                language: s.language,
+                use_count: s.use_count,
+            })
+            .collect();
+
+        let count = summaries.len();
+
+        Ok(SearchScriptsResult {
+            scripts: summaries,
+            count,
+        })
     }
 }
 
