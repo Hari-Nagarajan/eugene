@@ -295,6 +295,43 @@ async fn test_script_execution() {
 }
 
 #[tokio::test]
+async fn test_python_script_execution() {
+    let (config, memory, _run_id) = common::setup_with_run().await;
+    let save_tool = SaveScriptTool::new(memory.clone());
+    let run_tool = RunScriptTool::new(memory.clone(), config);
+
+    save_tool
+        .call(SaveScriptArgs {
+            name: "hello.py".to_string(),
+            code: "print('hello from python')".to_string(),
+            language: "python".to_string(),
+            description: "Python hello world test".to_string(),
+            tags: None,
+        })
+        .await
+        .unwrap();
+
+    let result = run_tool
+        .call(RunScriptArgs {
+            name: "hello.py".to_string(),
+            timeout: None,
+        })
+        .await
+        .unwrap();
+    assert!(
+        result.success,
+        "Python script should succeed, stderr={}",
+        result.stderr
+    );
+    assert!(
+        result.stdout.contains("hello from python"),
+        "Stdout should contain python greeting, got: {}",
+        result.stdout
+    );
+    assert_eq!(result.exit_code, 0);
+}
+
+#[tokio::test]
 async fn test_script_not_found() {
     let (config, memory, _run_id) = common::setup_with_run().await;
     let run_tool = RunScriptTool::new(memory.clone(), config);
