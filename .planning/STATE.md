@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-01T18:26:25Z"
+last_updated: "2026-03-01T19:01:07Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 16
+  completed_plans: 13
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Autonomously run multi-phase network reconnaissance and exploitation against a target network, making intelligent decisions without human intervention
-**Current focus:** Phase 4: Multi-Agent Orchestration
+**Current focus:** Phase 5: Scoring & Scripts
 
 ## Current Position
 
-Phase: 4 of 6 (Multi-Agent Orchestration) -- COMPLETE
-Plan: 3 of 3 in current phase (all complete)
-Status: Phase Complete
-Last activity: 2026-03-01 — Completed plan 04-03 (Orchestrator agent wiring and campaign entry point)
+Phase: 5 of 6 (Scoring & Scripts)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-03-01 -- Completed plan 05-01 (Score & script query functions)
 
-Progress: [██████████████░] 75% (12 of 16 total plans across all phases)
+Progress: [████████████████░░░] 81% (13 of 16 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 20.3 minutes
-- Total execution time: 4.01 hours
+- Total plans completed: 13
+- Average duration: 19.2 minutes
+- Total execution time: 4.11 hours
 
 **By Phase:**
 
@@ -44,6 +44,7 @@ Progress: [██████████████░] 75% (12 of 16 total pl
 | Phase 2 | 3 | 8 min | 2.7 min |
 | Phase 3 | 2 | 8 min | 4.0 min |
 | Phase 4 | 3 | 14 min | 4.7 min |
+| Phase 5 | 1 | 6 min | 6.0 min |
 
 **Recent Plans:**
 
@@ -61,6 +62,7 @@ Progress: [██████████████░] 75% (12 of 16 total pl
 | 04 | 04-01 | 6 min | 2 | 9 | 2026-03-01 |
 | 04 | 04-02 | 4 min | 1 | 4 | 2026-03-01 |
 | 04 | 04-03 | 4 min | 2 | 3 | 2026-03-01 |
+| 05 | 05-01 | 6 min | 2 | 5 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -109,6 +111,10 @@ Recent decisions affecting current work:
 - [Phase 04]: Orchestrator max_turns(20) vs executor max_turns(8) reflecting multi-phase vs focused scope
 - [Phase 04]: run_campaign() silently ignores update_run errors to avoid masking primary orchestrator error
 - [Phase 04]: Shared mock queue ordering for integration tests: orchestrator/executor consume responses sequentially
+- [Phase 05]: Fixed point table enforced in code per CONTEXT.md locked decision
+- [Phase 05]: ON CONFLICT upsert for save_script to handle duplicate names without error
+- [Phase 05]: QueryReturnedNoRows pattern for get_script_by_name returning Option<Script>
+- [Phase 05]: FTS5 external content table for scripts (name, description, tags) with insert/update/delete triggers
 
 ### Pending Todos
 
@@ -121,7 +127,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 04-03-PLAN.md (Orchestrator agent wiring and campaign entry point)
+Stopped at: Completed 05-01-PLAN.md (Score & script query functions)
 Resume file: None
 
-Phase 4 complete. All 3 plans executed: (1) Config, prompts, DB queries, memory tools; (2) Dispatch tools with Semaphore concurrency; (3) Orchestrator agent factories, run_campaign lifecycle, campaign CLI mode, 5 integration tests. Full multi-agent orchestration pipeline operational. 54 tests passing, zero clippy warnings. Ready for Phase 5 (Scheduling).
+Phase 5 in progress. Plan 05-01 complete: 8 query functions (points_for_action, log_score_event, get_score_summary, save_script, search_scripts, get_script_by_name, update_script_usage), 3 new structs (ScoreSummary, ScoreEvent, Script), RunSummary extended with score fields, scripts_fts FTS5 virtual table, tempfile dependency. 70 tests passing, zero clippy warnings. Ready for Plan 05-02 (scoring and script tools).
