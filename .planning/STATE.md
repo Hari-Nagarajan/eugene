@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-01T18:10:31Z"
+last_updated: "2026-03-01T18:18:30Z"
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 12
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 4 of 6 (Multi-Agent Orchestration)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-03-01 — Completed plan 04-01 (Config extensions, split prompts, DB queries, memory tools)
+Last activity: 2026-03-01 — Completed plan 04-02 (Dispatch tools with Semaphore-bounded concurrency)
 
-Progress: [██████████░] 63% (10 of 16 total plans across all phases)
+Progress: [███████████░] 69% (11 of 16 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 23.2 minutes
-- Total execution time: 3.87 hours
+- Total plans completed: 11
+- Average duration: 21.6 minutes
+- Total execution time: 3.94 hours
 
 **By Phase:**
 
@@ -43,7 +43,7 @@ Progress: [██████████░] 63% (10 of 16 total plans across a
 | Phase 1 | 4 | 210 min | 52.5 min |
 | Phase 2 | 3 | 8 min | 2.7 min |
 | Phase 3 | 2 | 8 min | 4.0 min |
-| Phase 4 | 1 | 6 min | 6.0 min |
+| Phase 4 | 2 | 10 min | 5.0 min |
 
 **Recent Plans:**
 
@@ -59,6 +59,7 @@ Progress: [██████████░] 63% (10 of 16 total plans across a
 | 03 | 03-01 | 6 min | 2 | 7 | 2026-03-01 |
 | 03 | 03-02 | 2 min | 2 | 2 | 2026-03-01 |
 | 04 | 04-01 | 6 min | 2 | 9 | 2026-03-01 |
+| 04 | 04-02 | 4 min | 1 | 4 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -100,6 +101,9 @@ Recent decisions affecting current work:
 - [Phase 04]: COALESCE wrapping SUM aggregations to handle NULL from empty task sets
 - [Phase 04]: make_orchestrator_memory_tools as non-generic interim factory (Plan 02 adds generic dispatch)
 - [Phase 04]: make_executor_tools returns same tool set as make_all_tools (backward compat)
+- [Phase 04]: CompletionModel already requires Clone, Arc<M> + (*model).clone() for ephemeral executor agents
+- [Phase 04]: Dispatch tools return Ok(error_string), never Err -- entropy-goblin error-as-value pattern
+- [Phase 04]: update_task errors silently discarded to avoid masking primary executor result
 
 ### Pending Todos
 
@@ -112,7 +116,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 04-01-PLAN.md (Config extensions, split prompts, DB queries, memory tools)
+Stopped at: Completed 04-02-PLAN.md (Dispatch tools with Semaphore-bounded concurrency)
 Resume file: None
 
-Phase 4 in progress. Plan 01 complete: Config extended with max_concurrent_executors, orchestrator/executor prompts split, 5 new DB queries, 3 rig Tool implementations (remember_finding, recall_findings, get_run_summary), tool factory split. Ready for Plan 02 (dispatch tools with Semaphore concurrency).
+Phase 4 in progress. Plan 02 complete: DispatchTaskTool and DispatchParallelTasksTool implement rig Tool trait with Semaphore-bounded concurrency. make_orchestrator_tools<M> returns all 5 tools. 6 new unit tests. Ready for Plan 03 (orchestrator agent creation and campaign flow).
