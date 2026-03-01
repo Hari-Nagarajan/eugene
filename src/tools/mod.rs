@@ -57,6 +57,15 @@ pub use log_score::{LogScoreTool, LogScoreArgs, LogScoreResult};
 mod get_score_context;
 pub use get_score_context::{GetScoreContextTool, GetScoreContextArgs, GetScoreContextResult, ScoreEventSummary};
 
+mod save_script;
+pub use save_script::{SaveScriptTool, SaveScriptArgs, SaveScriptResult};
+
+mod search_scripts;
+pub use search_scripts::{SearchScriptsTool, SearchScriptsArgs, SearchScriptsResult, ScriptSummary};
+
+mod run_script;
+pub use run_script::{RunScriptTool, RunScriptArgs, RunScriptResult};
+
 use rig::completion::CompletionModel;
 use rig::tool::ToolDyn;
 use std::sync::Arc;
