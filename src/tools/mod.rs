@@ -1,19 +1,29 @@
 //! Tool system for Eugene recon agent.
 //!
 //! This module provides rig Tool trait implementations:
+//!
+//! **Recon tools (single-agent + executor):**
 //! - `RunCommandTool`: Executes arbitrary CLI commands on the Pi via tokio::process
 //! - `LogDiscoveryTool`: Persists structured findings to SQLite memory store
-//! - `RememberFindingTool`: Orchestrator tool to persist findings for cross-phase recall
-//! - `RecallFindingsTool`: Orchestrator tool to retrieve findings by host
-//! - `GetRunSummaryTool`: Orchestrator tool to get run statistics
+//!
+//! **Orchestrator memory tools:**
+//! - `RememberFindingTool`: Persist findings for cross-phase recall
+//! - `RecallFindingsTool`: Retrieve findings by host
+//! - `GetRunSummaryTool`: Get run statistics (includes scoring data)
+//!
+//! **Scoring tools (orchestrator only):**
+//! - `LogScoreTool`: Log scoring events (host_discovered, detection, etc.) with fixed point values
+//! - `GetScoreContextTool`: Get current score summary for EV risk calculations
+//!
+//! **Script tools (orchestrator + executor):**
+//! - `SaveScriptTool`: Persist reusable bash/python scripts to the database
+//! - `SearchScriptsTool`: FTS5 full-text search across script names, descriptions, and tags
+//! - `RunScriptTool`: Execute saved scripts via interpreter (bash/python3)
 //!
 //! Unlike entropy-goblin's 8 separate tool structs (nmap, dns, arp, etc.), Eugene uses
 //! a single generic command execution tool. The agent constructs the full command string
 //! (e.g., "nmap -sS 192.168.1.0/24") and the tool just executes it. This simplifies the
 //! codebase while maintaining full recon capability.
-//!
-//! The agent's system prompt (Phase 3) will teach it how to use nmap, dig, arp-scan, etc.
-//! The tool system just provides safe execution and finding persistence.
 //!
 //! # Example
 //! ```no_run
@@ -92,10 +102,12 @@ pub fn make_all_tools(
 }
 
 /// Create executor tools for dispatched executor agents.
-/// Returns run_command and log_discovery tools -- same as make_all_tools.
+/// Returns 5 tools: recon tools (run_command, log_discovery) + script tools
+/// (save_script, search_scripts, run_script).
 ///
-/// Executors get recon tools only (no dispatch tools, no memory recall).
-/// This prevents infinite recursion (executor dispatching executor).
+/// Executors get recon and script tools (no dispatch tools, no memory recall,
+/// no scoring tools). This prevents infinite recursion (executor dispatching executor)
+/// while allowing script creation and reuse during task execution.
 pub fn make_executor_tools(
     config: Arc<Config>,
     memory: Arc<Connection>,
@@ -103,12 +115,16 @@ pub fn make_executor_tools(
     vec![
         Box::new(RunCommandTool::new(config.clone())) as Box<dyn ToolDyn>,
         Box::new(LogDiscoveryTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(SaveScriptTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(RunScriptTool::new(memory.clone(), config)) as Box<dyn ToolDyn>,
     ]
 }
 
-/// Create orchestrator memory tools (remember, recall, run_summary).
+/// Create orchestrator memory tools (remember, recall, run_summary, scoring).
 ///
 /// These are the non-generic orchestrator tools that don't require a model type.
+/// Includes memory tools (3) + scoring tools (2) = 5 tools.
 /// For the full orchestrator tool set including dispatch tools, use `make_orchestrator_tools<M>`.
 pub fn make_orchestrator_memory_tools(
     memory: Arc<Connection>,
@@ -118,17 +134,24 @@ pub fn make_orchestrator_memory_tools(
         Box::new(RememberFindingTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
         Box::new(RecallFindingsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(GetRunSummaryTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        Box::new(LogScoreTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        Box::new(GetScoreContextTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
     ]
 }
 
-/// Create the full orchestrator tool set: dispatch tools + memory tools.
+/// Create the full orchestrator tool set: dispatch + memory + scoring + script tools.
 ///
-/// Returns all 5 orchestrator tools:
+/// Returns all 10 orchestrator tools:
 /// - `DispatchTaskTool`: Dispatch a single task to an executor agent
 /// - `DispatchParallelTasksTool`: Dispatch multiple tasks concurrently
 /// - `RememberFindingTool`: Persist findings for cross-phase recall
 /// - `RecallFindingsTool`: Retrieve findings by host
-/// - `GetRunSummaryTool`: Get run statistics
+/// - `GetRunSummaryTool`: Get run statistics (includes scoring data)
+/// - `LogScoreTool`: Log scoring events with fixed point values
+/// - `GetScoreContextTool`: Get current score summary for EV calculations
+/// - `SaveScriptTool`: Persist reusable scripts to the database
+/// - `SearchScriptsTool`: FTS5 search across saved scripts
+/// - `RunScriptTool`: Execute saved scripts via interpreter
 ///
 /// Generic over `M: CompletionModel` because dispatch tools need to create
 /// executor agents with the same model type.
@@ -140,6 +163,7 @@ pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
     run_id: i64,
 ) -> Vec<Box<dyn ToolDyn>> {
     vec![
+        // Dispatch tools (2)
         Box::new(DispatchTaskTool::new(
             model.clone(),
             config.clone(),
@@ -149,13 +173,21 @@ pub fn make_orchestrator_tools<M: CompletionModel + 'static>(
         )) as Box<dyn ToolDyn>,
         Box::new(DispatchParallelTasksTool::new(
             model,
-            config,
+            config.clone(),
             memory.clone(),
             semaphore,
             run_id,
         )) as Box<dyn ToolDyn>,
+        // Memory tools (3)
         Box::new(RememberFindingTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
         Box::new(RecallFindingsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(GetRunSummaryTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        // Scoring tools (2)
+        Box::new(LogScoreTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        Box::new(GetScoreContextTool::new(memory.clone(), run_id)) as Box<dyn ToolDyn>,
+        // Script tools (3)
+        Box::new(SaveScriptTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(RunScriptTool::new(memory.clone(), config)) as Box<dyn ToolDyn>,
     ]
 }

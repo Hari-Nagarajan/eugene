@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-01T19:01:07Z"
+last_updated: "2026-03-01T19:09:25Z"
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -23,18 +23,18 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 5 of 6 (Scoring & Scripts)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-03-01 -- Completed plan 05-01 (Score & script query functions)
+Last activity: 2026-03-01 -- Completed plan 05-02 (Scoring & script tools)
 
-Progress: [████████████████░░░] 81% (13 of 16 total plans across all phases)
+Progress: [█████████████████░░] 88% (14 of 16 total plans across all phases)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 19.2 minutes
-- Total execution time: 4.11 hours
+- Total plans completed: 14
+- Average duration: 18.2 minutes
+- Total execution time: 4.19 hours
 
 **By Phase:**
 
@@ -44,7 +44,7 @@ Progress: [████████████████░░░] 81% (13 of
 | Phase 2 | 3 | 8 min | 2.7 min |
 | Phase 3 | 2 | 8 min | 4.0 min |
 | Phase 4 | 3 | 14 min | 4.7 min |
-| Phase 5 | 1 | 6 min | 6.0 min |
+| Phase 5 | 2 | 11 min | 5.5 min |
 
 **Recent Plans:**
 
@@ -63,6 +63,7 @@ Progress: [████████████████░░░] 81% (13 of
 | 04 | 04-02 | 4 min | 1 | 4 | 2026-03-01 |
 | 04 | 04-03 | 4 min | 2 | 3 | 2026-03-01 |
 | 05 | 05-01 | 6 min | 2 | 5 | 2026-03-01 |
+| 05 | 05-02 | 5 min | 2 | 6 | 2026-03-01 |
 
 ## Accumulated Context
 
@@ -115,6 +116,9 @@ Recent decisions affecting current work:
 - [Phase 05]: ON CONFLICT upsert for save_script to handle duplicate names without error
 - [Phase 05]: QueryReturnedNoRows pattern for get_script_by_name returning Option<Script>
 - [Phase 05]: FTS5 external content table for scripts (name, description, tags) with insert/update/delete triggers
+- [Phase 05]: RunScriptTool uses interpreter invocation (bash/python3) not direct execution for permission safety
+- [Phase 05]: GetScoreContextTool drops timestamp from ScoreEventSummary for conciseness
+- [Phase 05]: RunScriptTool ignores update_script_usage errors (error-as-value pattern for non-critical updates)
 
 ### Pending Todos
 
@@ -127,7 +131,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-01 (plan execution)
-Stopped at: Completed 05-01-PLAN.md (Score & script query functions)
+Stopped at: Completed 05-02-PLAN.md (Scoring & script tools)
 Resume file: None
 
-Phase 5 in progress. Plan 05-01 complete: 8 query functions (points_for_action, log_score_event, get_score_summary, save_script, search_scripts, get_script_by_name, update_script_usage), 3 new structs (ScoreSummary, ScoreEvent, Script), RunSummary extended with score fields, scripts_fts FTS5 virtual table, tempfile dependency. 70 tests passing, zero clippy warnings. Ready for Plan 05-02 (scoring and script tools).
+Phase 5 in progress. Plan 05-02 complete: 5 new rig Tool trait implementations (LogScoreTool, GetScoreContextTool, SaveScriptTool, SearchScriptsTool, RunScriptTool) wrapping Plan 01 query functions. LogScoreTool validates actions against fixed point table. RunScriptTool uses tempfile + interpreter invocation. 63 lib tests passing, zero clippy warnings. Ready for Plan 05-03 (agent factory registration and integration tests).

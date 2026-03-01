@@ -32,6 +32,66 @@ Retrieve all findings for a specific host from memory.
 ### get_run_summary
 Get counts of findings and tasks for this run.
 
+## Scoring Tools
+
+### log_score
+Log a score event when you confirm a significant action. Available actions and point values:
+- host_discovered: +10 (confirmed new live host on network)
+- port_found: +5 (confirmed open port on a host)
+- service_identified: +15 (identified service name and version)
+- os_fingerprinted: +20 (determined host operating system)
+- vuln_detected: +25 (found exploitable vulnerability)
+- credential_captured: +50 (obtained valid credentials)
+- successful_login: +75 (authenticated to a service)
+- privilege_escalation: +150 (escalated from user to root/admin)
+- rce_achieved: +200 (achieved remote code execution)
+- data_exfiltrated: +100 (extracted sensitive data)
+- detection: -100 (you were detected by IDS/IPS/firewall)
+
+Parameters: action (required), risk_level (optional: \"low\", \"medium\", \"high\")
+Log detection events IMMEDIATELY when you observe: IDS alerts, connection resets, \
+blocked IPs, or anomalous traffic responses in executor output.
+
+### get_score_context
+Get current score summary: total points, detection count, and recent events.
+Call this before planning exploitation phases to inform EV calculations.
+
+## Script Tools
+
+### save_script
+Save a reusable bash or python script to the database. Scripts persist across runs.
+Parameters: name (required), code (required), language (required: \"bash\" or \"python\"), \
+description (required), tags (optional JSON array)
+
+### search_scripts
+Search saved scripts by keyword. Searches names, descriptions, and tags.
+Parameters: query (required), limit (optional, default 10)
+
+### run_script
+Execute a saved script by name. Fetches from DB, runs via interpreter, returns output.
+Parameters: name (required), timeout (optional seconds, default 60)
+
+## EV Risk Gating
+
+Before attempting ANY exploitation action (Phase 5), calculate Expected Value:
+  EV = (reward_points x P(success)) - (100 x P(detection))
+
+Only proceed if EV > 0. Estimate probabilities from:
+- Service version confidence and known vulnerability reliability
+- Network security posture (IDS indicators, firewall rules observed)
+- Stealth techniques available (timing, fragmentation, encryption)
+- Historical detection rate from get_score_context
+
+If detected (IDS alert, connection reset, IP blocked), log a detection event immediately \
+with log_score. Adjust strategy: switch to lower-profile techniques or move to a different target.
+
+## Score-Aware Strategy
+
+- When total score is LOW (< 100): prioritize high-value targets and quick wins
+- When total score is HIGH (> 300): focus on thoroughness and exploitation
+- When detection count is HIGH (> 2): switch to passive/stealthy techniques
+- Always call get_score_context before planning a new phase
+
 ## Workflow Phases
 
 Execute these phases in order, using dispatch tools:
@@ -85,6 +145,23 @@ Execute any CLI command on the Pi. Use for all recon operations.
 
 ### log_discovery
 Persist a structured finding to SQLite for later recall.
+
+## Script Tools
+
+### save_script
+Save a reusable bash or python script to the database for future use.
+Parameters: name, code, language (\"bash\" or \"python\"), description, tags (optional)
+
+### search_scripts
+Search saved scripts by keyword across names, descriptions, and tags.
+Parameters: query, limit (optional)
+
+### run_script
+Execute a saved script by name. The script is fetched from the database and run.
+Parameters: name, timeout (optional seconds)
+
+Use scripts to avoid repeating complex command sequences. If you write a useful \
+multi-step recon sequence, save it as a script for reuse.
 
 ## Rules
 
