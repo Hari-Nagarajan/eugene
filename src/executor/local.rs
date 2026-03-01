@@ -89,11 +89,63 @@ impl LocalExecutor {
 mod tests {
     use super::*;
 
+    /// Test 1: Execute safe command returns Ok with stdout
     #[tokio::test]
-    async fn test_basic_execution() {
+    async fn test_execute_safe_command() {
         let executor = LocalExecutor;
         let result = executor.execute("echo hello", 5).await;
-        assert!(result.is_ok());
-        assert!(result.unwrap().contains("hello"));
+        assert!(result.is_ok(), "safe command should succeed");
+        let output = result.unwrap();
+        assert!(output.contains("hello"), "stdout should contain 'hello'");
+    }
+
+    /// Test 2: Command exceeding timeout returns ToolError::Timeout
+    #[tokio::test]
+    async fn test_execute_timeout() {
+        let executor = LocalExecutor;
+        let result = executor.execute("sleep 5", 1).await;
+        assert!(result.is_err(), "timed-out command should fail");
+        match result.unwrap_err() {
+            ToolError::Timeout(secs) => assert_eq!(secs, 1, "timeout should report 1 second"),
+            other => panic!("expected Timeout, got: {other}"),
+        }
+    }
+
+    /// Test 3: Nonexistent binary returns ToolError::ToolNotFound
+    #[tokio::test]
+    async fn test_execute_tool_not_found() {
+        let executor = LocalExecutor;
+        let result = executor.execute("fakebinary123", 5).await;
+        assert!(result.is_err(), "nonexistent binary should fail");
+        match result.unwrap_err() {
+            ToolError::ToolNotFound(name) => {
+                assert_eq!(name, "fakebinary123", "should report the binary name");
+            }
+            other => panic!("expected ToolNotFound, got: {other}"),
+        }
+    }
+
+    /// Test 4: Destructive command blocked by safety layer
+    #[tokio::test]
+    async fn test_execute_blocked_by_safety() {
+        let executor = LocalExecutor;
+        let result = executor.execute("rm -rf /tmp", 5).await;
+        assert!(result.is_err(), "destructive command should be blocked");
+        match result.unwrap_err() {
+            ToolError::SafetyError(_) => {} // expected
+            other => panic!("expected SafetyError, got: {other}"),
+        }
+    }
+
+    /// Test 5: Shell metacharacters blocked before process spawns
+    #[tokio::test]
+    async fn test_execute_shell_metachar_blocked() {
+        let executor = LocalExecutor;
+        let result = executor.execute("echo test; ls", 5).await;
+        assert!(result.is_err(), "shell metachar should be blocked");
+        match result.unwrap_err() {
+            ToolError::SafetyError(_) => {} // expected
+            other => panic!("expected SafetyError, got: {other}"),
+        }
     }
 }
