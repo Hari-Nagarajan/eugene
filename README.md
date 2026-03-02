@@ -4,7 +4,7 @@
   <img src="logo.png" alt="Eugene logo" width="320" />
 </p>
 
-**Autonomous offensive security agent** powered by [rig-core](https://github.com/0xPlaygrounds/rig). Drop it on a Raspberry Pi running Kali and let it loose. It uses whatever offensive tools are installed (nmap, hydra, sqlmap, msfconsole, etc.), writes scripts when the job calls for it, and decides what to do next on its own. Runs, findings, and scores are tracked in SQLite. Control it from Telegram or a TUI dashboard.
+**Autonomous offensive security agent** powered by [rig-core](https://github.com/0xPlaygrounds/rig). Drop it on a Raspberry Pi running Kali and let it loose. It uses whatever offensive tools are installed (nmap, hydra, sqlmap, msfconsole, etc.), writes scripts when the job calls for it, and decides what to do next on its own. Runs, findings, and scores are tracked in SQLite. Control it from Telegram or the command line.
 
 > **Sanctioned use only.** Designed for authorised network environments. Shell injection and Pi-destructive commands are blocked. Everything else is in scope.
 
@@ -105,6 +105,20 @@ systemctl --user start eugene
 sudo loginctl enable-linger $USER   # survive logout
 
 journalctl --user -u eugene -f   # tail logs
+```
+
+### Remote deployment over SSH
+
+Eugene doesn't have to run on the Pi itself. Run it on a separate machine (your laptop, an EC2 instance, etc.) and have it SSH into a Raspberry Pi on the target network. The agent executes all commands over SSH, so the Pi only needs Kali and the offensive tools installed. No trace of Eugene, the LLM client, API keys, or the SQLite database ever touches the device on the target network.
+
+```
+┌──────────────────────┐          SSH          ┌──────────────────────┐
+│  Your machine / EC2  │ ────────────────────▶  │  Raspberry Pi (Kali) │
+│                      │                        │                      │
+│  Eugene binary       │                        │  nmap, hydra, sqlmap │
+│  SQLite DB           │                        │  msfconsole, etc.    │
+│  API keys            │                        │  No eugene artifacts │
+└──────────────────────┘                        └──────────────────────┘
 ```
 
 ---
