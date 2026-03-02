@@ -107,18 +107,26 @@ sudo loginctl enable-linger $USER   # survive logout
 journalctl --user -u eugene -f   # tail logs
 ```
 
-### Remote deployment over SSH
+### Split mode: keep the brain off the target network
 
-Eugene doesn't have to run on the Pi itself. Run it on a separate machine (your laptop, an EC2 instance, etc.) and have it SSH into a Raspberry Pi on the target network. The agent executes all commands over SSH, so the Pi only needs Kali and the offensive tools installed. No trace of Eugene, the LLM client, API keys, or the SQLite database ever touches the device on the target network.
+You can leave a bare Kali Pi plugged into the target network with nothing on it but offensive tools. Eugene runs somewhere else (your laptop, a VPS, EC2) and SSHs in to do its work. If the Pi is ever found and seized, there's no agent binary, no API keys, no database, no LLM traffic — just a stock Kali install.
 
-```
-┌──────────────────────┐          SSH          ┌──────────────────────┐
-│  Your machine / EC2  │ ────────────────────▶  │  Raspberry Pi (Kali) │
-│                      │                        │                      │
-│  Eugene binary       │                        │  nmap, hydra, sqlmap │
-│  SQLite DB           │                        │  msfconsole, etc.    │
-│  API keys            │                        │  No eugene artifacts │
-└──────────────────────┘                        └──────────────────────┘
+```mermaid
+graph LR
+    subgraph "Your infrastructure"
+        EUGENE["Eugene agent
+        binary + SQLite + API keys"]
+    end
+
+    subgraph "Target network"
+        PI["Raspberry Pi
+        Kali Linux + offensive tools
+        nothing else"]
+        NET["Target hosts"]
+    end
+
+    EUGENE -->|SSH| PI
+    PI -->|nmap, hydra, etc.| NET
 ```
 
 ---
