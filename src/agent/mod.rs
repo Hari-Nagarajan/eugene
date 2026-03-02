@@ -177,7 +177,7 @@ pub async fn run_campaign<M: CompletionModel + Clone + Send + Sync + 'static>(
     model: M,
     config: Arc<Config>,
     memory: Arc<Connection>,
-    target: &str,
+    target: Option<&str>,
 ) -> Result<String, anyhow::Error>
 where
     M::Response: Send,
@@ -187,7 +187,7 @@ where
     let available_tools = tools_available::check_available_tools().await;
 
     // Create run record in DB
-    let run_id = create_run(&memory, "campaign".to_string(), Some(target.to_string())).await?;
+    let run_id = create_run(&memory, "campaign".to_string(), target.map(String::from)).await?;
 
     // Create semaphore for bounded executor concurrency
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_executors));
@@ -203,11 +203,18 @@ where
     );
 
     // Build campaign prompt
-    let prompt = format!(
-        "Run a complete multi-phase recon campaign against target: {}. \
-         Execute all 5 phases and report findings.",
-        target,
-    );
+    let prompt = match target {
+        Some(t) => format!(
+            "Run a complete multi-phase recon campaign against target: {}. \
+             Execute all 5 phases and report findings.",
+            t,
+        ),
+        None => "Run a complete multi-phase recon campaign. Start by discovering your \
+                 network position (interfaces, routes, ARP cache), then find live hosts \
+                 on all reachable subnets. Enumerate ports, services, and vulnerabilities \
+                 on everything you find. Execute all 5 phases and report findings."
+            .to_string(),
+    };
 
     // Execute and handle success/failure
     match run_recon_task(&orchestrator, &prompt).await {

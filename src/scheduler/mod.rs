@@ -63,7 +63,7 @@ async fn execute_scheduled_task(
     let result = match crate::agent::client::create_minimax_client() {
         Ok((client, model_name)) => {
             let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
-            crate::agent::run_campaign(model, config, db.clone(), &task.prompt).await
+            crate::agent::run_campaign(model, config, db.clone(), Some(&task.prompt)).await
         }
         Err(e) => Err(e),
     };

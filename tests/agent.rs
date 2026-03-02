@@ -79,7 +79,7 @@ async fn test_campaign_creates_run_record() {
         "Campaign assessment complete. No active hosts found on target network.",
     ))]);
 
-    let result = run_campaign(mock, config, memory.clone(), "192.168.1.0/24")
+    let result = run_campaign(mock, config, memory.clone(), Some("192.168.1.0/24"))
         .await
         .unwrap();
 

@@ -134,10 +134,10 @@ graph LR
 ## Quick Start
 
 ```bash
-# Run a campaign — Eugene discovers the network on its own
+# Start a campaign — Eugene discovers the network on its own
 eugene run
 
-# Or point it at a specific target
+# Or give it a specific target
 eugene run 192.168.1.0/24
 
 # Telegram C2 bot (includes scheduler)

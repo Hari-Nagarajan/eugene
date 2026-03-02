@@ -135,7 +135,7 @@ impl App {
 ///
 /// Returns when the user presses 'q' or the agent completes and user quits.
 pub async fn run_tui(
-    target: String,
+    target: Option<String>,
     config: Arc<Config>,
     db: Arc<Connection>,
 ) -> Result<(), anyhow::Error> {
@@ -147,12 +147,12 @@ pub async fn run_tui(
     let (tx, mut rx) = tokio::sync::mpsc::channel::<AgentEvent>(100);
 
     // Initialize app state
-    let mut app = App::new(target.clone());
+    let display_target = target.clone().unwrap_or_else(|| "auto-discover".to_string());
+    let mut app = App::new(display_target);
 
     // Create MiniMax client and spawn agent campaign
     let agent_config = config.clone();
     let agent_db = db.clone();
-    let agent_target = target.clone();
     let _agent_handle = tokio::spawn(async move {
         let client_result = create_minimax_client();
         let (client, model_name) = match client_result {
@@ -168,7 +168,7 @@ pub async fn run_tui(
             .send(AgentEvent::PhaseStarted("Campaign".to_string()))
             .await;
 
-        match run_campaign(model, agent_config, agent_db, &agent_target).await {
+        match run_campaign(model, agent_config, agent_db, target.as_deref()).await {
             Ok(summary) => {
                 let _ = tx.send(AgentEvent::AgentComplete(summary)).await;
             }

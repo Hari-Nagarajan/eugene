@@ -13,9 +13,9 @@ pub struct Cli {
 pub enum Commands {
     /// Run a one-shot recon task
     Run {
-        /// Target network or prompt
-        #[arg(default_value = "10.0.0.0/24")]
-        target: String,
+        /// Target network, host, or natural language instruction. If omitted, Eugene
+        /// discovers the local network and enumerates everything it can find.
+        target: Option<String>,
     },
     /// Start the Telegram bot (includes scheduler)
     Bot,
@@ -62,19 +62,19 @@ mod tests {
     use clap::Parser;
 
     #[test]
-    fn test_cli_run_default_target() {
+    fn test_cli_run_no_target() {
         let cli = Cli::parse_from(["eugene", "run"]);
         match cli.command {
-            Commands::Run { target } => assert_eq!(target, "10.0.0.0/24"),
+            Commands::Run { target } => assert_eq!(target, None),
             _ => panic!("Expected Run command"),
         }
     }
 
     #[test]
-    fn test_cli_run_custom_target() {
+    fn test_cli_run_with_target() {
         let cli = Cli::parse_from(["eugene", "run", "192.168.1.0/24"]);
         match cli.command {
-            Commands::Run { target } => assert_eq!(target, "192.168.1.0/24"),
+            Commands::Run { target } => assert_eq!(target.as_deref(), Some("192.168.1.0/24")),
             _ => panic!("Expected Run command"),
         }
     }

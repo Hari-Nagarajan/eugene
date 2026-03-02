@@ -104,7 +104,7 @@ async fn handle_run(
     let result = run_with_typing(bot, chat_id, async move {
         let (client, model_name) = create_minimax_client()?;
         let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
-        run_campaign(model, config, db_clone, &prompt_clone).await
+        run_campaign(model, config, db_clone, Some(&prompt_clone)).await
     })
     .await;
 
