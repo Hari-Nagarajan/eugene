@@ -134,10 +134,10 @@ graph LR
 ## Quick Start
 
 ```bash
-# One-shot recon run (launches TUI dashboard)
-eugene run 10.0.0.0/24
+# Run a campaign — Eugene discovers the network on its own
+eugene run
 
-# Custom target
+# Or point it at a specific target
 eugene run 192.168.1.0/24
 
 # Telegram C2 bot (includes scheduler)
