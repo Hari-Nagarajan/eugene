@@ -100,7 +100,8 @@ impl NvdClient {
             .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
             .user_agent(USER_AGENT)
             .build()
-            .expect("reqwest client build should not fail");
+            // reqwest build() only fails on TLS backend init — fatal system error
+            .expect("reqwest TLS initialization failed");
         Self {
             client,
             api_key,

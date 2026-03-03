@@ -71,6 +71,12 @@ pub struct OsvClient {
     client: reqwest::Client,
 }
 
+impl Default for OsvClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OsvClient {
     /// Create a new OSV client with standard timeout and user-agent.
     pub fn new() -> Self {
@@ -78,7 +84,8 @@ impl OsvClient {
             .timeout(std::time::Duration::from_secs(TIMEOUT_SECS))
             .user_agent(USER_AGENT)
             .build()
-            .expect("reqwest client build should not fail");
+            // reqwest build() only fails on TLS backend init — fatal system error
+            .expect("reqwest TLS initialization failed");
         Self { client }
     }
 
@@ -130,7 +137,7 @@ impl OsvClient {
             .vulns
             .unwrap_or_default()
             .into_iter()
-            .map(|v| osv_vuln_to_cve_record(v))
+            .map(osv_vuln_to_cve_record)
             .collect()
     }
 }

@@ -1,6 +1,6 @@
-/// CPE 2.3 string builder and service-to-vendor/ecosystem mapping tables.
-///
-/// Maps nmap service names to NVD CPE vendor:product pairs and OSV Debian packages.
+//! CPE 2.3 string builder and service-to-vendor/ecosystem mapping tables.
+//!
+//! Maps nmap service names to NVD CPE vendor:product pairs and OSV Debian packages.
 
 /// NVD CPE vendor:product mapping for a service.
 #[derive(Debug, Clone, PartialEq)]

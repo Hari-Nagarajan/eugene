@@ -81,33 +81,31 @@ pub async fn lookup_cves(
             .collect();
 
         for cve_id in &cve_ids_needing_cvss {
-            if let Some(nvd_record) = nvd.get_cve(cve_id).await {
-                if nvd_record.cvss_score.is_some() {
-                    // Find and update the matching OSV record
-                    if let Some(record) = records.iter_mut().find(|r| &r.cve_id == cve_id) {
-                        record.cvss_score = nvd_record.cvss_score;
-                        record.cvss_vector = nvd_record.cvss_vector;
-                        record.severity = nvd_record.severity;
-                    }
-                }
+            if let Some(nvd_record) = nvd.get_cve(cve_id).await
+                && nvd_record.cvss_score.is_some()
+                && let Some(record) = records.iter_mut().find(|r| &r.cve_id == cve_id)
+            {
+                record.cvss_score = nvd_record.cvss_score;
+                record.cvss_vector = nvd_record.cvss_vector;
+                record.severity = nvd_record.severity;
             }
         }
     }
 
     // 4. NVD CPE fallback (if OSV returned nothing or no OSV mapping exists)
-    if records.is_empty() {
-        if let Some(mapping) = service_to_cpe(service) {
-            let cpe = build_cpe(mapping.vendor, mapping.product, &clean_version);
-            records = nvd.search_by_cpe(&cpe).await;
-            log::debug!("NVD CPE fallback returned {} results for {}", records.len(), cpe);
-        }
+    if records.is_empty()
+        && let Some(mapping) = service_to_cpe(service)
+    {
+        let cpe = build_cpe(mapping.vendor, mapping.product, &clean_version);
+        records = nvd.search_by_cpe(&cpe).await;
+        log::debug!("NVD CPE fallback returned {} results for {}", records.len(), cpe);
     }
 
     // 5. Store in cache
-    if !records.is_empty() {
-        if let Err(e) = store_cached_cves(conn, key.clone(), records.clone()).await {
-            log::warn!("Cache store failed for {}: {}", key, e);
-        }
+    if !records.is_empty()
+        && let Err(e) = store_cached_cves(conn, key.clone(), records.clone()).await
+    {
+        log::warn!("Cache store failed for {}: {}", key, e);
     }
 
     records
@@ -123,10 +121,11 @@ pub async fn lookup_cves(
 /// - ("OpenSSH", "8.4p1") -> "openssh:8.4p1"
 /// - ("My-Service", "1.0") -> "my_service:1.0"
 fn cache_key(service: &str, version: &str) -> String {
-    let normalized = service
+    let normalized: String = service
         .to_lowercase()
-        .replace(' ', "_")
-        .replace('-', "_");
+        .chars()
+        .map(|c| if c == ' ' || c == '-' { '_' } else { c })
+        .collect();
     format!("{}:{}", normalized, version)
 }
 
