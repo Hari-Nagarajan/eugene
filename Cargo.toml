@@ -37,5 +37,9 @@ crossterm = "0.29"
 dotenvy = "0.15.7"
 ipnet = "2.11.0"
 
+# Phase 7: CVE Data Foundation
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+cvss = { version = "2.2", features = ["serde"] }
+
 [features]
 live-tests = []
