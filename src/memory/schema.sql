@@ -183,3 +183,24 @@ CREATE TABLE IF NOT EXISTS game_state (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- 11. CVE Cache (vulnerability data with TTL)
+CREATE TABLE IF NOT EXISTS cve_cache (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    cache_key       TEXT NOT NULL,
+    cve_id          TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    cvss_score      REAL,
+    cvss_vector     TEXT,
+    severity        TEXT NOT NULL DEFAULT 'UNKNOWN'
+                    CHECK(severity IN ('CRITICAL','HIGH','MEDIUM','LOW','UNKNOWN')),
+    references_json TEXT NOT NULL DEFAULT '[]',
+    published       TEXT,
+    source          TEXT NOT NULL CHECK(source IN ('osv','nvd')),
+    fetched_at      TEXT NOT NULL,
+    UNIQUE(cache_key, cve_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cve_cache_key ON cve_cache(cache_key);
+CREATE INDEX IF NOT EXISTS idx_cve_cache_severity ON cve_cache(severity);
+CREATE INDEX IF NOT EXISTS idx_cve_cache_fetched ON cve_cache(fetched_at);

@@ -31,6 +31,8 @@ pub struct Config {
     pub allowed_chat_ids: Vec<i64>,
     /// Path to the SQLite database file
     pub db_path: String,
+    /// NVD API key for authenticated CVE lookups (optional, higher rate limits)
+    pub nvd_api_key: Option<String>,
 }
 
 impl Config {
@@ -53,6 +55,7 @@ impl Config {
             .collect();
 
         let db_path = std::env::var("EUGENE_DB_PATH").unwrap_or_else(|_| "eugene.db".to_string());
+        let nvd_api_key = std::env::var("NVD_API_KEY").ok();
 
         Self {
             tool_timeouts: default_tool_timeouts(),
@@ -62,6 +65,7 @@ impl Config {
             minimax_api_key,
             allowed_chat_ids,
             db_path,
+            nvd_api_key,
         }
     }
 }
@@ -76,6 +80,7 @@ impl Default for Config {
             minimax_api_key: None,
             allowed_chat_ids: Vec::new(),
             db_path: "eugene.db".to_string(),
+            nvd_api_key: None,
         }
     }
 }
@@ -97,6 +102,7 @@ mod tests {
         assert!(config.minimax_api_key.is_none());
         assert!(config.allowed_chat_ids.is_empty());
         assert_eq!(config.db_path, "eugene.db");
+        assert!(config.nvd_api_key.is_none());
     }
 
     #[test]

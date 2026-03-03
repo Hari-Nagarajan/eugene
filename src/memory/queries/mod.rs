@@ -24,3 +24,6 @@ pub use sessions::{load_session, save_session, clear_session};
 
 mod schedules;
 pub use schedules::{ScheduledTask, create_schedule, list_schedules, delete_schedule, pause_schedule, resume_schedule, get_due_schedules, advance_schedule};
+
+mod cve;
+pub use cve::{get_cached_cves, store_cached_cves, delete_stale_cves};
