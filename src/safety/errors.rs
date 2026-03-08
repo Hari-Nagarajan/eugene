@@ -13,4 +13,10 @@ pub enum SafetyError {
 
     #[error("Blocked: invalid characters in target: {0}")]
     InvalidTarget(String),
+
+    #[error("Blocked: wifi command targets protected interface '{0}' (C2 channel)")]
+    ProtectedInterface(String),
+
+    #[error("Blocked: {0}")]
+    BlockedWifiCommand(String),
 }

@@ -242,16 +242,16 @@ mod tests {
         use crate::safety::{validate_command, sanitize_target};
 
         // Should block destructive commands
-        assert!(validate_command("rm -rf /").is_err());
-        assert!(validate_command("dd if=/dev/zero of=/dev/sda").is_err());
-        assert!(validate_command("shutdown -h now").is_err());
+        assert!(validate_command("rm -rf /", None).is_err());
+        assert!(validate_command("dd if=/dev/zero of=/dev/sda", None).is_err());
+        assert!(validate_command("shutdown -h now", None).is_err());
 
         // Should allow offensive tools
-        assert!(validate_command("nmap -sS 192.168.1.1").is_ok());
-        assert!(validate_command("hydra -l admin -P pass.txt ssh://target").is_ok());
+        assert!(validate_command("nmap -sS 192.168.1.1", None).is_ok());
+        assert!(validate_command("hydra -l admin -P pass.txt ssh://target", None).is_ok());
 
         // Should block shell metacharacters
-        assert!(validate_command("cat /etc/passwd; rm -rf /").is_err());
+        assert!(validate_command("cat /etc/passwd; rm -rf /", None).is_err());
 
         // Should validate targets
         assert!(sanitize_target("192.168.1.1").is_ok());

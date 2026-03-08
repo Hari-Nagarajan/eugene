@@ -8,7 +8,11 @@ use tokio::time::timeout;
 /// Executes CLI commands with configurable timeouts and pre-execution
 /// safety validation. Commands run in /tmp to match the entropy-goblin
 /// execution model.
-pub struct LocalExecutor;
+pub struct LocalExecutor {
+    /// ALFA wifi adapter interface name for C2 protection.
+    /// When set, wifi commands targeting other interfaces are blocked.
+    pub alfa_interface: Option<String>,
+}
 
 impl LocalExecutor {
     /// Execute a command with timeout and safety validation
@@ -24,7 +28,7 @@ impl LocalExecutor {
         timeout_secs: u64,
     ) -> Result<String, ToolError> {
         // Validate command through safety layer before any execution
-        crate::safety::validate_command(command)?;
+        crate::safety::validate_command(command, self.alfa_interface.as_deref())?;
 
         // Enforce scan rate limits (rewrites command if needed)
         let command = crate::safety::enforce_scan_limits(command);
@@ -96,7 +100,7 @@ mod tests {
     /// Test 1: Execute safe command returns Ok with stdout
     #[tokio::test]
     async fn test_execute_safe_command() {
-        let executor = LocalExecutor;
+        let executor = LocalExecutor { alfa_interface: None };
         let result = executor.execute("echo hello", 5).await;
         assert!(result.is_ok(), "safe command should succeed");
         let output = result.unwrap();
@@ -106,7 +110,7 @@ mod tests {
     /// Test 2: Command exceeding timeout returns ToolError::Timeout
     #[tokio::test]
     async fn test_execute_timeout() {
-        let executor = LocalExecutor;
+        let executor = LocalExecutor { alfa_interface: None };
         let result = executor.execute("sleep 5", 1).await;
         assert!(result.is_err(), "timed-out command should fail");
         match result.unwrap_err() {
@@ -118,7 +122,7 @@ mod tests {
     /// Test 3: Nonexistent binary returns ToolError::ToolNotFound
     #[tokio::test]
     async fn test_execute_tool_not_found() {
-        let executor = LocalExecutor;
+        let executor = LocalExecutor { alfa_interface: None };
         let result = executor.execute("fakebinary123", 5).await;
         assert!(result.is_err(), "nonexistent binary should fail");
         match result.unwrap_err() {
@@ -132,7 +136,7 @@ mod tests {
     /// Test 4: Destructive command blocked by safety layer
     #[tokio::test]
     async fn test_execute_blocked_by_safety() {
-        let executor = LocalExecutor;
+        let executor = LocalExecutor { alfa_interface: None };
         let result = executor.execute("rm -rf /tmp", 5).await;
         assert!(result.is_err(), "destructive command should be blocked");
         match result.unwrap_err() {
@@ -144,7 +148,7 @@ mod tests {
     /// Test 5: Shell metacharacters blocked before process spawns
     #[tokio::test]
     async fn test_execute_shell_metachar_blocked() {
-        let executor = LocalExecutor;
+        let executor = LocalExecutor { alfa_interface: None };
         let result = executor.execute("echo test; ls", 5).await;
         assert!(result.is_err(), "shell metachar should be blocked");
         match result.unwrap_err() {

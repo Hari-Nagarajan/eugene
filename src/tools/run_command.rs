@@ -120,7 +120,9 @@ impl Tool for RunCommandTool {
                 .unwrap_or(&60)
         });
 
-        let executor = LocalExecutor;
+        let executor = LocalExecutor {
+            alfa_interface: self.config.wifi_interface.clone(),
+        };
         match executor.execute(&args.command, timeout_secs).await {
             Ok(stdout) => {
                 let (truncated_stdout, was_truncated) = truncate_output(&stdout);

@@ -11,3 +11,4 @@ pub mod service;
 pub mod tools;
 pub mod tui;
 pub mod vuln;
+pub mod wifi;
