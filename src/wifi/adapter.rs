@@ -56,11 +56,11 @@ pub async fn discover_wifi_adapter() -> Option<String> {
 /// 3. None (wifi operations skipped)
 pub async fn resolve_wifi_interface(config_override: Option<&str>) -> Option<String> {
     // First: check config override (EUGENE_WIFI_IFACE)
-    if let Some(iface) = config_override {
-        if !iface.is_empty() {
-            log::info!("Using wifi interface from config override: {}", iface);
-            return Some(iface.to_string());
-        }
+    if let Some(iface) = config_override
+        && !iface.is_empty()
+    {
+        log::info!("Using wifi interface from config override: {}", iface);
+        return Some(iface.to_string());
     }
 
     // Second: try sysfs driver discovery
@@ -85,7 +85,10 @@ pub struct WifiAdapter {
 impl WifiAdapter {
     /// Create a new WifiAdapter in Managed state.
     pub fn new(interface: String) -> Self {
-        todo!("Task 2: implement WifiAdapter::new")
+        Self {
+            interface,
+            state: InterfaceState::Managed,
+        }
     }
 
     /// Get the interface name.
@@ -99,8 +102,12 @@ impl WifiAdapter {
     }
 
     /// Check if the interface still exists in the system.
+    ///
+    /// Verifies `/sys/class/net/<iface>` exists, which confirms the adapter
+    /// is plugged in and recognized by the kernel.
     pub async fn is_available(&self) -> bool {
-        todo!("Task 2: implement is_available")
+        let path = format!("/sys/class/net/{}", self.interface);
+        tokio::fs::metadata(&path).await.is_ok()
     }
 
     /// Enable monitor mode on this adapter. Returns a guard that restores
@@ -108,7 +115,13 @@ impl WifiAdapter {
     ///
     /// Returns Err if already in monitor mode.
     pub async fn enable_monitor(&mut self) -> Result<MonitorModeGuard, String> {
-        todo!("Task 2: implement enable_monitor")
+        if self.state == InterfaceState::Monitor {
+            return Err("Already in monitor mode".to_string());
+        }
+
+        let guard = MonitorModeGuard::enable(&self.interface).await?;
+        self.state = InterfaceState::Monitor;
+        Ok(guard)
     }
 
     /// Restore the adapter to managed state (called after guard is dropped).
@@ -136,7 +149,45 @@ impl MonitorModeGuard {
     ///
     /// On step 2 failure, attempts to bring the interface back up before returning Err.
     pub async fn enable(interface: &str) -> Result<Self, String> {
-        todo!("Task 2: implement MonitorModeGuard::enable")
+        // Step 1: ip link set <iface> down
+        let status = tokio::process::Command::new("ip")
+            .args(["link", "set", interface, "down"])
+            .status()
+            .await
+            .map_err(|e| format!("ip link down failed: {e}"))?;
+        if !status.success() {
+            return Err("ip link set down failed".into());
+        }
+
+        // Step 2: iw dev <iface> set type monitor
+        let status = tokio::process::Command::new("iw")
+            .args(["dev", interface, "set", "type", "monitor"])
+            .status()
+            .await
+            .map_err(|e| format!("iw set monitor failed: {e}"))?;
+        if !status.success() {
+            // Attempt to restore interface before returning error
+            let _ = tokio::process::Command::new("ip")
+                .args(["link", "set", interface, "up"])
+                .status()
+                .await;
+            return Err("iw dev set type monitor failed".into());
+        }
+
+        // Step 3: ip link set <iface> up
+        let status = tokio::process::Command::new("ip")
+            .args(["link", "set", interface, "up"])
+            .status()
+            .await
+            .map_err(|e| format!("ip link up failed: {e}"))?;
+        if !status.success() {
+            return Err("ip link set up failed".into());
+        }
+
+        log::info!("Monitor mode enabled on {}", interface);
+        Ok(Self {
+            interface: interface.to_string(),
+        })
     }
 }
 
