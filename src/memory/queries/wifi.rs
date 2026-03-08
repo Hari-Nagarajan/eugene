@@ -116,7 +116,7 @@ mod tests {
         let (conn, run_id) = setup().await;
 
         // First insert
-        let id1 = insert_wifi_ap(
+        let _id1 = insert_wifi_ap(
             &conn,
             Some(run_id),
             "AA:BB:CC:DD:EE:FF".to_string(),
