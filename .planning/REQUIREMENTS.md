@@ -19,7 +19,7 @@ Requirements for Wifi Offensive Pipeline milestone. Each maps to roadmap phases.
 
 ### Wifi Recon
 
-- [ ] **WRCN-01**: Agent scans visible networks via `iw dev <iface> scan` in managed mode and stores AP findings
+- [x] **WRCN-01**: Agent scans visible networks via `iw dev <iface> scan` in managed mode and stores AP findings
 - [ ] **WRCN-02**: Agent runs airodump-ng in monitor mode with timeout+kill pattern and parses CSV output
 - [ ] **WRCN-03**: Custom airodump CSV parser handles two-section format, comma-space delimiters, hidden networks
 - [ ] **WRCN-04**: AP findings stored with SSID, BSSID, channel, encryption, cipher, signal strength, client count
@@ -132,7 +132,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WFND-05 | Phase 10 | Complete |
 | WFND-06 | Phase 10 | Complete |
 | WFND-07 | Phase 10 | Complete |
-| WRCN-01 | Phase 10 | Pending |
+| WRCN-01 | Phase 10 | Complete |
 | WRCN-02 | Phase 11 | Pending |
 | WRCN-03 | Phase 11 | Pending |
 | WRCN-04 | Phase 11 | Pending |

@@ -33,7 +33,7 @@
 
 **Milestone Goal:** Give the agent full wifi offensive capabilities -- autonomous discovery, attack, and credential capture against wireless networks using a dedicated ALFA AWUS036ACH adapter.
 
-- [ ] **Phase 10: Wifi Foundation** - Safety guardrails, adapter discovery, monitor mode management, passive scanning
+- [x] **Phase 10: Wifi Foundation** - Safety guardrails, adapter discovery, monitor mode management, passive scanning (completed 2026-03-08)
 - [ ] **Phase 11: Active Recon** - Airodump scanning, CSV parser, wifi data layer, probe monitoring
 - [ ] **Phase 12: Core Attacks** - WPA handshake, PMKID, WPS, cracking, scoring, attack path selection
 - [ ] **Phase 13: Campaign Integration** - CLI subcommand, campaign workflow, reporting
@@ -155,7 +155,7 @@ Plans:
 | 7. CVE Data Foundation | v1.1 | 2/2 | Complete | 2026-03-03 |
 | 8. Vulnerability Tools | v1.1 | 0/? | Paused | - |
 | 9. Agent Workflow Integration | v1.1 | 0/? | Paused | - |
-| 10. Wifi Foundation | 2/3 | In Progress|  | - |
+| 10. Wifi Foundation | 3/3 | Complete   | 2026-03-08 | - |
 | 11. Active Recon | v1.2 | 0/? | Not started | - |
 | 12. Core Attacks | v1.2 | 0/? | Not started | - |
 | 13. Campaign Integration | v1.2 | 0/? | Not started | - |
