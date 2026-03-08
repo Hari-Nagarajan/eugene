@@ -27,3 +27,6 @@ pub use schedules::{ScheduledTask, create_schedule, list_schedules, delete_sched
 
 mod cve;
 pub use cve::{get_cached_cves, store_cached_cves, delete_stale_cves};
+
+mod wifi;
+pub use wifi::{insert_wifi_ap, get_wifi_aps};
