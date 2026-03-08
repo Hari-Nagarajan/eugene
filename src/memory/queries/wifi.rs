@@ -9,6 +9,7 @@ use crate::wifi::types::WifiAccessPoint;
 /// Uses INSERT OR REPLACE with UNIQUE(run_id, bssid) to handle rescan updates.
 /// Preserves `first_seen` from the existing row if one exists (via COALESCE sub-select).
 /// Returns the rowid of the inserted/replaced row.
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_wifi_ap(
     conn: &Connection,
     run_id: Option<i64>,

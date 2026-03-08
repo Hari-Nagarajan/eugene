@@ -5,6 +5,7 @@
 //! **Recon tools (single-agent + executor):**
 //! - `RunCommandTool`: Executes arbitrary CLI commands on the Pi via tokio::process
 //! - `LogDiscoveryTool`: Persists structured findings to SQLite memory store
+//! - `LogWifiDiscoveryTool`: Persists wifi AP findings (BSSID, SSID, channel, encryption, signal)
 //!
 //! **Orchestrator memory tools:**
 //! - `RememberFindingTool`: Persist findings for cross-phase recall
@@ -76,6 +77,9 @@ pub use search_scripts::{SearchScriptsTool, SearchScriptsArgs, SearchScriptsResu
 mod run_script;
 pub use run_script::{RunScriptTool, RunScriptArgs, RunScriptResult};
 
+mod log_wifi_discovery;
+pub use log_wifi_discovery::{LogWifiDiscoveryTool, LogWifiDiscoveryArgs, LogWifiDiscoveryResult};
+
 use rig::completion::CompletionModel;
 use rig::tool::ToolDyn;
 use std::sync::Arc;
@@ -103,7 +107,7 @@ pub fn make_all_tools(
 }
 
 /// Create executor tools for dispatched executor agents.
-/// Returns 5 tools: recon tools (run_command, log_discovery) + script tools
+/// Returns 6 tools: recon tools (run_command, log_discovery, log_wifi_discovery) + script tools
 /// (save_script, search_scripts, run_script).
 ///
 /// Executors get recon and script tools (no dispatch tools, no memory recall,
@@ -118,7 +122,8 @@ pub fn make_executor_tools(
         Box::new(LogDiscoveryTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(SaveScriptTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(RunScriptTool::new(memory, config)) as Box<dyn ToolDyn>,
+        Box::new(RunScriptTool::new(memory.clone(), config)) as Box<dyn ToolDyn>,
+        Box::new(LogWifiDiscoveryTool::new(memory)) as Box<dyn ToolDyn>,
     ]
 }
 
