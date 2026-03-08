@@ -67,6 +67,25 @@ const UTIL_TOOLS: &[&str] = &[
     "curl", "wget", "netcat", "socat", "python3", "ip", "ss", "ifconfig",
 ];
 
+/// Wifi-specific tools for adapter management, scanning, and attacks.
+pub const WIFI_TOOLS: &[&str] = &[
+    "iw",
+    "iwconfig",
+    "iwlist",
+    "airmon-ng",
+    "airodump-ng",
+    "aireplay-ng",
+    "aircrack-ng",
+    "hcxdumptool",
+    "hcxpcapngtool",
+    "reaver",
+    "bully",
+    "wash",
+    "hostapd",
+    "dnsmasq",
+    "macchanger",
+];
+
 /// A categorized snapshot of which tools are installed on this system.
 #[derive(Debug, Clone, Default)]
 pub struct AvailableTools {
@@ -77,6 +96,7 @@ pub struct AvailableTools {
     pub password: Vec<String>,
     pub exploit: Vec<String>,
     pub util: Vec<String>,
+    pub wifi: Vec<String>,
 }
 
 impl AvailableTools {
@@ -93,6 +113,7 @@ impl AvailableTools {
             ("Password Attacks", &self.password),
             ("Exploitation", &self.exploit),
             ("Utilities", &self.util),
+            ("Wifi", &self.wifi),
         ];
         let mut any = false;
         for (name, tools) in categories {
@@ -140,12 +161,12 @@ async fn filter_available(tools: &[&str]) -> Vec<String> {
 
 /// Discover which tools from the curated list are installed on this system.
 ///
-/// Runs `which` against ~55 tool names. Each check is ~1ms so the total
+/// Runs `which` against ~70 tool names. Each check is ~1ms so the total
 /// wall time is negligible. Results are cached in the returned struct for
 /// the lifetime of the campaign (tool availability doesn't change mid-run).
 pub async fn check_available_tools() -> AvailableTools {
     // Run all categories concurrently
-    let (recon, dns, web, sniffing, password, exploit, util) = tokio::join!(
+    let (recon, dns, web, sniffing, password, exploit, util, wifi) = tokio::join!(
         filter_available(RECON_TOOLS),
         filter_available(DNS_TOOLS),
         filter_available(WEB_TOOLS),
@@ -153,6 +174,7 @@ pub async fn check_available_tools() -> AvailableTools {
         filter_available(PASSWORD_TOOLS),
         filter_available(EXPLOIT_TOOLS),
         filter_available(UTIL_TOOLS),
+        filter_available(WIFI_TOOLS),
     );
 
     AvailableTools {
@@ -163,6 +185,7 @@ pub async fn check_available_tools() -> AvailableTools {
         password,
         exploit,
         util,
+        wifi,
     }
 }
 
@@ -187,6 +210,7 @@ mod tests {
             password: vec![],
             exploit: vec![],
             util: vec!["curl".into()],
+            wifi: vec![],
         };
         let section = tools.format_section();
         assert!(section.contains("### Recon\nnmap, ping"));
@@ -194,7 +218,29 @@ mod tests {
         assert!(section.contains("### Utilities\ncurl"));
         assert!(!section.contains("### Web"));
         assert!(!section.contains("### Password"));
+        assert!(!section.contains("### Wifi"));
         assert!(!section.contains("No tools detected"));
+    }
+
+    #[test]
+    fn test_format_section_with_wifi_tools() {
+        let tools = AvailableTools {
+            wifi: vec!["iw".into(), "aircrack-ng".into()],
+            ..Default::default()
+        };
+        let section = tools.format_section();
+        assert!(section.contains("### Wifi\niw, aircrack-ng"));
+        assert!(!section.contains("No tools detected"));
+    }
+
+    #[test]
+    fn test_wifi_tools_constant_has_15_entries() {
+        assert_eq!(WIFI_TOOLS.len(), 15);
+        assert!(WIFI_TOOLS.contains(&"iw"));
+        assert!(WIFI_TOOLS.contains(&"airmon-ng"));
+        assert!(WIFI_TOOLS.contains(&"macchanger"));
+        assert!(WIFI_TOOLS.contains(&"hostapd"));
+        assert!(WIFI_TOOLS.contains(&"dnsmasq"));
     }
 
     #[test]
