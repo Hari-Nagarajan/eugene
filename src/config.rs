@@ -12,6 +12,19 @@ fn default_tool_timeouts() -> HashMap<&'static str, u64> {
         ("arp", 10),
         ("traceroute", 90),
         ("default", 60),
+        // Wifi tool timeouts
+        ("iw", 15),
+        ("iwconfig", 10),
+        ("iwlist", 30),
+        ("airmon-ng", 15),
+        ("airodump-ng", 120),
+        ("aireplay-ng", 30),
+        ("aircrack-ng", 1800),
+        ("hcxdumptool", 120),
+        ("hcxpcapngtool", 30),
+        ("reaver", 600),
+        ("bully", 600),
+        ("wash", 30),
     ])
 }
 
@@ -33,6 +46,9 @@ pub struct Config {
     pub db_path: String,
     /// NVD API key for authenticated CVE lookups (optional, higher rate limits)
     pub nvd_api_key: Option<String>,
+    /// Discovered ALFA wifi adapter interface name (e.g., "wlan1").
+    /// Set by runtime discovery or EUGENE_WIFI_IFACE env var. None if no adapter found.
+    pub wifi_interface: Option<String>,
 }
 
 impl Config {
@@ -56,6 +72,7 @@ impl Config {
 
         let db_path = std::env::var("EUGENE_DB_PATH").unwrap_or_else(|_| "eugene.db".to_string());
         let nvd_api_key = std::env::var("NVD_API_KEY").ok();
+        let wifi_interface = std::env::var("EUGENE_WIFI_IFACE").ok();
 
         Self {
             tool_timeouts: default_tool_timeouts(),
@@ -66,6 +83,7 @@ impl Config {
             allowed_chat_ids,
             db_path,
             nvd_api_key,
+            wifi_interface,
         }
     }
 }
@@ -81,6 +99,7 @@ impl Default for Config {
             allowed_chat_ids: Vec::new(),
             db_path: "eugene.db".to_string(),
             nvd_api_key: None,
+            wifi_interface: None,
         }
     }
 }
@@ -103,6 +122,7 @@ mod tests {
         assert!(config.allowed_chat_ids.is_empty());
         assert_eq!(config.db_path, "eugene.db");
         assert!(config.nvd_api_key.is_none());
+        assert!(config.wifi_interface.is_none());
     }
 
     #[test]

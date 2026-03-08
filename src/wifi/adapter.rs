@@ -15,7 +15,39 @@ const ALFA_DRIVER_NAMES: &[&str] = &["88XXau", "rtl8812au", "8812au"];
 /// at `/sys/class/net/<iface>/device/driver`. Returns the first interface
 /// whose driver matches a known RTL8812AU driver name.
 pub async fn discover_wifi_adapter() -> Option<String> {
-    todo!("Task 1: implement sysfs discovery")
+    let mut entries = match tokio::fs::read_dir("/sys/class/net").await {
+        Ok(entries) => entries,
+        Err(_) => {
+            log::debug!("Cannot read /sys/class/net (not on Linux?)");
+            return None;
+        }
+    };
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let iface_name = entry.file_name().to_string_lossy().to_string();
+
+        // Read the driver symlink: /sys/class/net/<iface>/device/driver
+        let driver_path = format!("/sys/class/net/{}/device/driver", iface_name);
+        if let Ok(driver_link) = tokio::fs::read_link(&driver_path).await {
+            let driver_name = driver_link
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            // Match RTL8812AU driver names
+            if ALFA_DRIVER_NAMES.contains(&driver_name.as_str()) {
+                log::info!(
+                    "Discovered ALFA adapter: {} (driver: {})",
+                    iface_name,
+                    driver_name
+                );
+                return Some(iface_name);
+            }
+        }
+    }
+
+    log::debug!("No ALFA wifi adapter found via sysfs driver detection");
+    None
 }
 
 /// Resolve the wifi interface to use, with fallback chain:
@@ -23,7 +55,22 @@ pub async fn discover_wifi_adapter() -> Option<String> {
 /// 2. sysfs driver discovery
 /// 3. None (wifi operations skipped)
 pub async fn resolve_wifi_interface(config_override: Option<&str>) -> Option<String> {
-    todo!("Task 1: implement resolve fallback chain")
+    // First: check config override (EUGENE_WIFI_IFACE)
+    if let Some(iface) = config_override {
+        if !iface.is_empty() {
+            log::info!("Using wifi interface from config override: {}", iface);
+            return Some(iface.to_string());
+        }
+    }
+
+    // Second: try sysfs driver discovery
+    if let Some(iface) = discover_wifi_adapter().await {
+        return Some(iface);
+    }
+
+    // Both failed: wifi operations will be skipped
+    log::warn!("No ALFA wifi adapter found. Wifi operations will be skipped.");
+    None
 }
 
 #[cfg(test)]
