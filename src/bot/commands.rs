@@ -5,7 +5,7 @@ use teloxide::prelude::*;
 use teloxide::types::ChatAction;
 use teloxide::utils::command::BotCommands;
 
-use super::formatting::{escape_html, format_findings, format_status, send_chunked};
+use super::formatting::{escape_html, format_findings, format_status, send_chunked, send_chunked_plain};
 use super::session;
 use super::BotState;
 
@@ -93,47 +93,71 @@ async fn handle_run(
         prompt
     };
 
+    // Acknowledge immediately so the user knows it's running
+    bot.send_message(chat_id, format!("🔍 <b>Campaign started:</b> {}", escape_html(&prompt)))
+        .parse_mode(teloxide::types::ParseMode::Html)
+        .await?;
+
     let chat_id_str = chat_id.0.to_string();
     let db = state.db.clone();
     let config = state.config.clone();
+    let bot_clone = bot.clone();
 
-    let history = session::load_chat_history(&db, &chat_id_str).await;
+    // Run the campaign in the background so the bot stays responsive
+    tokio::spawn(async move {
+        let history = session::load_chat_history(&db, &chat_id_str).await;
 
-    let prompt_clone = prompt.clone();
-    let db_clone = db.clone();
-    let result = run_with_typing(bot, chat_id, async move {
-        let (client, model_name) = create_minimax_client()?;
-        let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
-        run_campaign(model, config, db_clone, Some(&prompt_clone)).await
-    })
-    .await;
+        let prompt_clone = prompt.clone();
+        let db_clone = db.clone();
+        let result = run_with_typing(&bot_clone, chat_id, async move {
+            let (client, model_name) = create_minimax_client()?;
+            let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
+            run_campaign(model, config, db_clone, Some(&prompt_clone)).await
+        })
+        .await;
 
-    match result {
-        Ok(response) => {
-            session::save_chat_history(&db, &chat_id_str, &prompt, &response, &history).await;
-            send_chunked(bot, chat_id, &escape_html(&response)).await?;
+        match result {
+            Ok(response) => {
+                session::save_chat_history(&db, &chat_id_str, &prompt, &response, &history).await;
+                let _ = send_chunked_plain(&bot_clone, chat_id, &response).await;
+            }
+            Err(e) => {
+                let _ = bot_clone
+                    .send_message(chat_id, format!("<b>Error:</b> {}", escape_html(&e.to_string())))
+                    .parse_mode(teloxide::types::ParseMode::Html)
+                    .await;
+            }
         }
-        Err(e) => {
-            bot.send_message(chat_id, format!("<b>Error:</b> {}", escape_html(&e.to_string())))
-                .parse_mode(teloxide::types::ParseMode::Html)
-                .await?;
-        }
-    }
+    });
+
     Ok(())
 }
 
 async fn handle_status(bot: &Bot, chat_id: ChatId, state: &BotState) -> ResponseResult<()> {
     let db = state.db.clone();
 
+    // Prefer the currently running campaign, fall back to most recent
     let run_id_result = db
         .call(|conn| {
+            // First try to find a running campaign
             match conn.query_row(
-                "SELECT id FROM runs ORDER BY started_at DESC LIMIT 1",
+                "SELECT id FROM runs WHERE status = 'running' ORDER BY started_at DESC LIMIT 1",
                 [],
                 |row| row.get::<_, i64>(0),
             ) {
                 Ok(id) => Ok(Some(id)),
-                Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                Err(rusqlite::Error::QueryReturnedNoRows) => {
+                    // No running campaign, get the most recent
+                    match conn.query_row(
+                        "SELECT id FROM runs ORDER BY started_at DESC LIMIT 1",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    ) {
+                        Ok(id) => Ok(Some(id)),
+                        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+                        Err(e) => Err(e.into()),
+                    }
+                }
                 Err(e) => Err(e.into()),
             }
         })
@@ -169,14 +193,30 @@ async fn handle_findings(
 ) -> ResponseResult<()> {
     let db = state.db.clone();
 
+    // Only show actionable security findings, not discovery noise
+    let actionable_types = [
+        "port_scan", "service_enum", "vuln_detect", "os_fingerprint",
+    ];
+
     let findings = if host.trim().is_empty() {
-        db.call(|conn| {
-            let mut stmt = conn.prepare(
+        let types = actionable_types.map(String::from).to_vec();
+        db.call(move |conn| {
+            let placeholders: String = types.iter().enumerate()
+                .map(|(i, _)| format!("?{}", i + 1))
+                .collect::<Vec<_>>()
+                .join(",");
+            let query = format!(
                 "SELECT id, run_id, host, finding_type, data, timestamp \
-                 FROM findings ORDER BY timestamp DESC LIMIT 20",
-            )?;
+                 FROM findings WHERE finding_type IN ({}) \
+                 ORDER BY timestamp DESC LIMIT 20",
+                placeholders
+            );
+            let mut stmt = conn.prepare(&query)?;
+            let params: Vec<&dyn rusqlite::types::ToSql> = types.iter()
+                .map(|s| s as &dyn rusqlite::types::ToSql)
+                .collect();
             let findings = stmt
-                .query_map([], |row| {
+                .query_map(params.as_slice(), |row| {
                     Ok(crate::memory::Finding {
                         id: row.get(0)?,
                         run_id: row.get(1)?,
@@ -198,8 +238,8 @@ async fn handle_findings(
 
     match findings {
         Ok(findings) => {
-            let html = format_findings(&findings);
-            send_chunked(bot, chat_id, &html).await?;
+            let text = format_findings(&findings);
+            send_chunked_plain(bot, chat_id, &text).await?;
         }
         Err(e) => {
             bot.send_message(chat_id, format!("Error: {}", escape_html(&e.to_string())))

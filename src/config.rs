@@ -4,7 +4,7 @@ use std::path::PathBuf;
 /// Default per-tool timeouts in seconds.
 fn default_tool_timeouts() -> HashMap<&'static str, u64> {
     HashMap::from([
-        ("nmap", 300),
+        ("nmap", 900),
         ("tcpdump", 30),
         ("whois", 15),
         ("netdiscover", 60),
@@ -111,7 +111,7 @@ mod tests {
         // (we don't test env var reading directly to avoid test races)
         let config = Config::from_env();
         assert_eq!(config.max_concurrent_executors, 4);
-        assert_eq!(*config.tool_timeouts.get("nmap").unwrap(), 300);
+        assert_eq!(*config.tool_timeouts.get("nmap").unwrap(), 900);
     }
 
     #[test]

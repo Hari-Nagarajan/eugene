@@ -57,6 +57,19 @@ pub async fn send_chunked(
     Ok(())
 }
 
+/// Chunk and send each piece as plain text (no HTML parsing)
+pub async fn send_chunked_plain(
+    bot: &Bot,
+    chat_id: ChatId,
+    text: &str,
+) -> Result<(), teloxide::RequestError> {
+    let chunks = chunk_message(text);
+    for chunk in chunks {
+        bot.send_message(chat_id, chunk).await?;
+    }
+    Ok(())
+}
+
 /// Format a RunSummary as HTML for Telegram
 pub fn format_status(summary: &RunSummary) -> String {
     let score_line = if summary.total_score != 0 || summary.detection_count != 0 {
@@ -87,21 +100,21 @@ pub fn format_status(summary: &RunSummary) -> String {
     )
 }
 
-/// Format a list of findings as HTML
+/// Format a list of findings as plain text
 pub fn format_findings(findings: &[Finding]) -> String {
     if findings.is_empty() {
         return "No findings found.".to_string();
     }
 
-    let mut out = String::from("<b>Findings</b>\n\n");
+    let mut out = String::from("Findings\n\n");
     for f in findings {
         let host = f.host.as_deref().unwrap_or("unknown");
         let _ = write!(
             out,
-            "<b>{}</b> [{}]\n<code>{}</code>\n\n",
-            escape_html(host),
-            escape_html(&f.finding_type),
-            escape_html(&f.data),
+            "{} [{}]\n{}\n\n",
+            host,
+            &f.finding_type,
+            &f.data,
         );
     }
     out
@@ -204,10 +217,10 @@ mod tests {
             data: "port 22 SSH".to_string(),
             timestamp: "2026-01-01".to_string(),
         }];
-        let html = format_findings(&findings);
-        assert!(html.contains("192.168.1.1"));
-        assert!(html.contains("open_port"));
-        assert!(html.contains("port 22 SSH"));
+        let text = format_findings(&findings);
+        assert!(text.contains("192.168.1.1"));
+        assert!(text.contains("open_port"));
+        assert!(text.contains("port 22 SSH"));
     }
 
     #[test]
