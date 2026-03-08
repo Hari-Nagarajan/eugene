@@ -127,6 +127,8 @@ where
             .await
             .map_err(|e| ToolError::DispatchFailed(format!("failed to log task: {e}")))?;
 
+        log::info!("[dispatch] task={} desc={}", args.task_name, args.task_description);
+
         // Clone Arcs for the spawned future
         let model = self.model.clone();
         let config = self.config.clone();
@@ -147,18 +149,21 @@ where
                 .tools(executor_tools)
                 .temperature(0.3)
                 .max_tokens(4096)
-                .default_max_turns(8)
+                .default_max_turns(16)
                 .build();
 
             // Run the executor
             let result: Result<String, String> =
                 match executor.prompt(&task_description).await {
                     Ok(result) => {
+                        log::info!("[executor] task={} status=completed len={}", task_name, result.len());
+                        log::debug!("[executor] task={} result={}", task_name, result);
                         let _ = update_task(&memory, task_id, "completed", &result).await;
                         Ok(result)
                     }
                     Err(e) => {
                         let err = format!("[ERROR] Task '{}' failed: {}", task_name, e);
+                        log::error!("[executor] {}", err);
                         let _ = update_task(&memory, task_id, "failed", &err).await;
                         Ok(err)
                     }
@@ -288,7 +293,7 @@ where
                     .tools(executor_tools)
                     .temperature(0.3)
                     .max_tokens(4096)
-                    .default_max_turns(8)
+                    .default_max_turns(16)
                     .build();
 
                 // Run the executor

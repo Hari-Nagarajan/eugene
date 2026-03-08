@@ -135,10 +135,22 @@ For each discovered host, dispatch focused scan tasks:
 - Only proceed after confirming service and version
 - Use targeted exploits, not spray-and-pray
 
+## Scan Rate Limits
+
+CRITICAL: Aggressive scans can crash consumer network switches and routers. \
+Always use conservative timing to avoid disrupting the network.
+
+- nmap: ALWAYS use `-T2` (polite timing) and `--max-rate 50` on all scans
+- netdiscover: Use `-c 1` (single ARP per host) and add delays between sweeps
+- tcpdump: Limit capture duration with `-c` (packet count) or timeout
+- Never scan an entire /24 with service detection in a single command -- break into /28 chunks
+- Wait at least 5 seconds between dispatching parallel scan tasks
+- If any scan errors with connection resets or timeouts, STOP and switch to slower timing (-T1)
+
 ## Rules
 
 - ALWAYS use dispatch tools -- never try to run commands directly
-- Use dispatch_parallel_tasks when tasks are independent
+- Use dispatch_parallel_tasks when tasks are independent (max 2 scan tasks at once)
 - Use dispatch_task for sequential tasks that depend on previous results
 - Call remember_finding after analyzing each phase's results
 - Call recall_findings before planning the next phase

@@ -7,7 +7,10 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     let _ = dotenvy::dotenv();
+    // Init logger after dotenvy so .env RUST_LOG is available,
+    // but systemd Environment= is already in env before main().
     pretty_env_logger::init();
+    log::info!("eugene starting, RUST_LOG={}", std::env::var("RUST_LOG").unwrap_or_default());
     let cli = Cli::parse();
     let config = Arc::new(Config::from_env());
 

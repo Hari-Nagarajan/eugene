@@ -26,6 +26,10 @@ impl LocalExecutor {
         // Validate command through safety layer before any execution
         crate::safety::validate_command(command)?;
 
+        // Enforce scan rate limits (rewrites command if needed)
+        let command = crate::safety::enforce_scan_limits(command);
+        log::info!("[exec] {}", command);
+
         // Parse command into parts
         let parts: Vec<&str> = command.split_whitespace().collect();
         if parts.is_empty() {

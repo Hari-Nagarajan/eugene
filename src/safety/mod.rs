@@ -29,6 +29,51 @@ const PI_DESTRUCTIVE_BINARIES: &[&str] = &[
     "badblocks",
 ];
 
+/// Enforce rate-limiting flags on scan tools.
+///
+/// Rewrites the command in-place to inject conservative timing so the agent
+/// cannot overwhelm consumer network equipment, regardless of what the LLM
+/// requests. This runs *after* validation so we know the command is safe.
+pub fn enforce_scan_limits(command: &str) -> String {
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    if parts.is_empty() {
+        return command.to_string();
+    }
+
+    let binary = parts[0].rsplit('/').next().unwrap_or(parts[0]);
+
+    let has_nmap = parts.iter().any(|p| p.rsplit('/').next() == Some("nmap"));
+    let has_masscan = binary == "masscan";
+    let has_netdiscover = binary == "netdiscover";
+
+    if has_nmap {
+        let mut cmd = command.to_string();
+        // Strip any existing timing flag (-T0 through -T5)
+        let timing_re = regex::Regex::new(r"\s-T[0-5]\b").unwrap();
+        cmd = timing_re.replace_all(&cmd, "").to_string();
+        // Strip any existing --max-rate
+        let rate_re = regex::Regex::new(r"\s--max-rate\s+\d+").unwrap();
+        cmd = rate_re.replace_all(&cmd, "").to_string();
+        // Inject our limits right after 'nmap'
+        cmd = cmd.replacen("nmap", "nmap -T2 --max-rate 50", 1);
+        cmd
+    } else if has_masscan {
+        let mut cmd = command.to_string();
+        let rate_re = regex::Regex::new(r"\s--rate\s+\d+").unwrap();
+        cmd = rate_re.replace_all(&cmd, "").to_string();
+        cmd = cmd.replacen("masscan", "masscan --rate 50", 1);
+        cmd
+    } else if has_netdiscover {
+        let mut cmd = command.to_string();
+        if !cmd.contains("-c ") {
+            cmd = cmd.replacen("netdiscover", "netdiscover -c 1", 1);
+        }
+        cmd
+    } else {
+        command.to_string()
+    }
+}
+
 /// Validate command before execution to prevent Pi self-destruction
 pub fn validate_command(command: &str) -> Result<(), SafetyError> {
     // Check shell metacharacters
@@ -104,6 +149,41 @@ pub fn sanitize_target(target: &str) -> Result<String, SafetyError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_enforce_scan_limits_nmap() {
+        // Injects -T2 --max-rate 50
+        let cmd = enforce_scan_limits("nmap -sS 192.168.1.0/24");
+        assert!(cmd.contains("-T2"), "should inject -T2: {cmd}");
+        assert!(cmd.contains("--max-rate 50"), "should inject --max-rate 50: {cmd}");
+
+        // Strips aggressive timing
+        let cmd = enforce_scan_limits("nmap -T5 -sS 192.168.1.0/24");
+        assert!(!cmd.contains("-T5"), "should strip -T5: {cmd}");
+        assert!(cmd.contains("-T2"), "should inject -T2: {cmd}");
+
+        // Strips existing --max-rate
+        let cmd = enforce_scan_limits("nmap --max-rate 10000 -sS 192.168.1.0/24");
+        assert!(!cmd.contains("10000"), "should strip old rate: {cmd}");
+        assert!(cmd.contains("--max-rate 50"), "should inject --max-rate 50: {cmd}");
+    }
+
+    #[test]
+    fn test_enforce_scan_limits_netdiscover() {
+        let cmd = enforce_scan_limits("netdiscover -r 192.168.1.0/24");
+        assert!(cmd.contains("-c 1"), "should inject -c 1: {cmd}");
+
+        // Doesn't double-add if already present
+        let cmd = enforce_scan_limits("netdiscover -c 3 -r 192.168.1.0/24");
+        assert!(!cmd.contains("-c 1"), "should not override existing -c: {cmd}");
+    }
+
+    #[test]
+    fn test_enforce_scan_limits_passthrough() {
+        // Non-scan commands pass through unchanged
+        let cmd = enforce_scan_limits("echo hello");
+        assert_eq!(cmd, "echo hello");
+    }
 
     #[test]
     fn test_safety_validation() {
