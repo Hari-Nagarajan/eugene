@@ -85,6 +85,12 @@ Parameters: query (required), limit (optional, default 10)
 Execute a saved script by name. Fetches from DB, runs via interpreter, returns output.
 Parameters: name (required), timeout (optional seconds, default 60)
 
+## Vulnerability Tools
+
+### check_exploit
+Check if a public exploit exists for a CVE. Parameters: cve_id (required). \
+Returns exploit details (type, platform, EDB-ID) or warning if searchsploit unavailable.
+
 ## EV Risk Gating
 
 Before attempting ANY exploitation action (Phase 5), calculate Expected Value:
@@ -95,6 +101,19 @@ Only proceed if EV > 0. Estimate probabilities from:
 - Network security posture (IDS indicators, firewall rules observed)
 - Stealth techniques available (timing, fragmentation, encryption)
 - Historical detection rate from get_score_context
+
+### CVSS-Based P(success) Estimation
+When a discovered vulnerability has a CVSS score and exploit availability data from check_exploit:
+- CVSS >= 9.0 + known exploit: P(success) = 0.8
+- CVSS >= 9.0, no exploit:     P(success) = 0.4
+- CVSS >= 7.0 + known exploit: P(success) = 0.6
+- CVSS >= 7.0, no exploit:     P(success) = 0.3
+- CVSS >= 4.0 + known exploit: P(success) = 0.4
+- CVSS >= 4.0, no exploit:     P(success) = 0.15
+- CVSS < 4.0:                  P(success) = 0.1
+
+Remote exploits (type: remote) are more directly applicable than local exploits. \
+Prefer targets with remote exploits when multiple options have similar EV.
 
 If detected (IDS alert, connection reset, IP blocked), log a detection event immediately \
 with log_score. Adjust strategy: switch to lower-profile techniques or move to a different target.
