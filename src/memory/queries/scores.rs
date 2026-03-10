@@ -163,6 +163,58 @@ mod tests {
         assert!(summary.recent_events.is_empty());
     }
 
+    #[test]
+    fn test_weighted_vuln_points_critical() {
+        assert_eq!(weighted_vuln_points(Some(9.5)), 50); // 25 * 2.0
+    }
+
+    #[test]
+    fn test_weighted_vuln_points_high() {
+        assert_eq!(weighted_vuln_points(Some(7.5)), 38); // 25 * 1.5, rounded
+    }
+
+    #[test]
+    fn test_weighted_vuln_points_medium() {
+        assert_eq!(weighted_vuln_points(Some(5.0)), 25); // 25 * 1.0
+    }
+
+    #[test]
+    fn test_weighted_vuln_points_low() {
+        assert_eq!(weighted_vuln_points(Some(2.0)), 13); // 25 * 0.5, rounded
+    }
+
+    #[test]
+    fn test_weighted_vuln_points_none() {
+        assert_eq!(weighted_vuln_points(None), 25); // unknown default
+    }
+
+    #[test]
+    fn test_weighted_vuln_points_zero() {
+        assert_eq!(weighted_vuln_points(Some(0.0)), 25); // zero treated as unknown
+    }
+
+    #[tokio::test]
+    async fn test_log_weighted_vuln_event_critical() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        let event_id = log_weighted_vuln_event(&conn, Some(run_id), Some(9.8), "high".to_string()).await.unwrap();
+        assert!(event_id > 0);
+
+        let points: i64 = conn
+            .call(move |conn| {
+                Ok(conn.query_row("SELECT points FROM score_events WHERE id = ?1", rusqlite::params![event_id], |row| row.get(0))?)
+            }).await.unwrap();
+        assert_eq!(points, 50); // critical CVSS stores 50 not flat 25
+    }
+
+    #[tokio::test]
+    async fn test_log_weighted_vuln_event_backward_compat() {
+        // Existing points_for_action still returns 25 for vuln_detected
+        assert_eq!(points_for_action("vuln_detected"), Some(25));
+    }
+
     #[tokio::test]
     async fn test_get_score_summary_with_events() {
         let conn = open_memory_store(":memory:").await.unwrap();

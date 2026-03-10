@@ -24,7 +24,7 @@
 <summary>🚧 v1.1 CVE & Vulnerability Research (Phases 7-9) -- PAUSED</summary>
 
 - [x] **Phase 7: CVE Data Foundation** -- completed 2026-03-03
-- [ ] **Phase 8: Vulnerability Tools** -- paused
+- [ ] **Phase 8: Vulnerability Tools** -- planning complete
 - [ ] **Phase 9: Agent Workflow Integration** -- paused
 
 </details>
@@ -63,8 +63,11 @@ Plans:
   1. Agent calls searchsploit on the Kali Pi and receives structured JSON indicating whether a public exploit exists for a given CVE
   2. CVSS base score from a discovered CVE feeds into the EV formula as P(success) estimate, making high-CVSS vulns with known exploits rank higher for exploitation
   3. Discovering a CVE for a service logs a score event (+25 points weighted by CVSS severity) visible in the run summary
-**Plans**: TBD
-**Status**: Paused (deferred to after v1.2)
+**Plans**: 2
+
+Plans:
+- [ ] 08-01-PLAN.md -- SearchSploit client, CveRecord extension, CheckExploitTool, auto-enrichment (Wave 1)
+- [ ] 08-02-PLAN.md -- CVSS-weighted scoring, EV formula P(success) guidance (Wave 1)
 
 ### Phase 9: Agent Workflow Integration
 **Goal**: Agent autonomously enriches recon findings with CVE data during campaigns and uses vulnerability intelligence to select exploitation targets
@@ -153,9 +156,9 @@ Plans:
 | 5. Scoring & Scripts | v1.0 | 3/3 | Complete | 2026-03-01 |
 | 6. C2 & Scheduling | v1.0 | 4/4 | Complete | 2026-03-03 |
 | 7. CVE Data Foundation | v1.1 | 2/2 | Complete | 2026-03-03 |
-| 8. Vulnerability Tools | v1.1 | 0/? | Paused | - |
+| 8. Vulnerability Tools | v1.1 | 0/2 | Planned | - |
 | 9. Agent Workflow Integration | v1.1 | 0/? | Paused | - |
-| 10. Wifi Foundation | 3/3 | Complete   | 2026-03-08 | - |
+| 10. Wifi Foundation | v1.2 | 3/3 | Complete | 2026-03-08 |
 | 11. Active Recon | v1.2 | 0/? | Not started | - |
 | 12. Core Attacks | v1.2 | 0/? | Not started | - |
 | 13. Campaign Integration | v1.2 | 0/? | Not started | - |
