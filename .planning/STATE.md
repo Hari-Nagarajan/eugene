@@ -38,7 +38,7 @@ Progress: [██████░░░░] 25% (v1.2: 3/12 plans across 4 phases
 
 **v1.1:**
 - Phase 7 complete (2/2 plans, 10 min total)
-- Phase 8 Plan 01: completed (SearchSploit + CveRecord exploit fields)
+- Phase 8 Plan 01: 5 min (2 tasks, 9 files) -- SearchSploit + CveRecord exploit fields
 - Phase 8 Plan 02: 3 min (2 tasks, 4 files)
 
 **v1.2:**
@@ -64,6 +64,8 @@ Recent decisions affecting current work:
 - [10-02]: MonitorModeGuard Drop uses std::process::Command (blocking) -- guarantees cleanup during tokio shutdown
 - [10-03]: INSERT OR REPLACE with COALESCE sub-select preserves first_seen timestamp on wifi AP rescan updates
 - [10-03]: clippy::too_many_arguments allowed on insert_wifi_ap -- flat parameter list mirrors DB columns
+- [08-01]: searchsploit availability checked per-call via `which` -- no startup failure if missing
+- [08-01]: ExploitEntry fields all serde(default) for robustness against searchsploit JSON quirks
 - [08-02]: CVSS multiplier thresholds match CveSeverity::from_score() breakpoints for consistency
 - [08-02]: Zero CVSS treated as unknown (1.0x) not low (0.5x) -- avoids penalizing missing data
 
@@ -79,7 +81,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-10
-Stopped at: Completed 08-02-PLAN.md (CVSS-weighted scoring + EV prompt guidance)
+Stopped at: Completed 08-01-PLAN.md (SearchSploit integration + CheckExploitTool)
 Resume file: None
 
 Next step: Continue v1.1 Phase 09 or resume v1.2 Phase 11
