@@ -3,7 +3,7 @@ pub use errors::MemoryError;
 
 mod queries;
 pub use queries::{Memory, Finding, RunSummary, create_run, log_finding, log_task, update_task, update_run, get_findings_by_host, get_run_summary, save_memory, search_memories};
-pub use queries::{ScoreSummary, ScoreEvent, Script, points_for_action, log_score_event, get_score_summary, save_script, search_scripts, get_script_by_name, update_script_usage};
+pub use queries::{ScoreSummary, ScoreEvent, Script, points_for_action, log_score_event, get_score_summary, weighted_vuln_points, log_weighted_vuln_event, save_script, search_scripts, get_script_by_name, update_script_usage};
 pub use queries::{ScheduledTask, load_session, save_session, clear_session, create_schedule, list_schedules, delete_schedule, pause_schedule, resume_schedule, get_due_schedules, advance_schedule};
 pub use queries::{get_cached_cves, store_cached_cves, delete_stale_cves};
 pub use queries::{insert_wifi_ap, get_wifi_aps};

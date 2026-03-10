@@ -63,6 +63,51 @@ pub async fn log_score_event(
     err_result.map_err(MemoryError::from)
 }
 
+/// Calculate CVSS-weighted points for a vulnerability detection event.
+///
+/// Base points = 25 (same as flat `vuln_detected`). Multiplier by severity:
+/// - Critical (>= 9.0): 2.0x -> 50 points
+/// - High (>= 7.0): 1.5x -> 38 points
+/// - Medium (>= 4.0): 1.0x -> 25 points
+/// - Low (> 0.0): 0.5x -> 13 points
+/// - Unknown / None / 0.0: 1.0x -> 25 points
+pub fn weighted_vuln_points(cvss_score: Option<f64>) -> i64 {
+    let base: f64 = 25.0;
+    let multiplier = match cvss_score {
+        Some(s) if s >= 9.0 => 2.0,
+        Some(s) if s >= 7.0 => 1.5,
+        Some(s) if s >= 4.0 => 1.0,
+        Some(s) if s > 0.0 => 0.5,
+        _ => 1.0, // None or 0.0 -> unknown
+    };
+    (base * multiplier).round() as i64
+}
+
+/// Log a CVSS-weighted vulnerability detection event.
+///
+/// Unlike [`log_score_event`] which uses the flat 25-point value for `vuln_detected`,
+/// this function applies CVSS severity weighting so critical CVEs score higher.
+pub async fn log_weighted_vuln_event(
+    conn: &Connection,
+    run_id: Option<i64>,
+    cvss_score: Option<f64>,
+    risk_level: String,
+) -> Result<i64, MemoryError> {
+    let points = weighted_vuln_points(cvss_score);
+    let timestamp = Utc::now().to_rfc3339();
+
+    let err_result = conn
+        .call(move |conn| {
+            conn.execute(
+                "INSERT INTO score_events (run_id, action, points, risk_level, detected, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![run_id, "vuln_detected", points, risk_level, 0i64, timestamp],
+            )?;
+            Ok(conn.last_insert_rowid())
+        })
+        .await;
+    err_result.map_err(MemoryError::from)
+}
+
 /// Get score summary for a run
 pub async fn get_score_summary(
     conn: &Connection,

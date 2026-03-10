@@ -11,7 +11,7 @@ mod runs;
 pub use runs::{RunSummary, Finding, create_run, log_finding, log_task, update_task, update_run, get_findings_by_host, get_run_summary};
 
 mod scores;
-pub use scores::{ScoreSummary, ScoreEvent, points_for_action, log_score_event, get_score_summary};
+pub use scores::{ScoreSummary, ScoreEvent, points_for_action, log_score_event, get_score_summary, weighted_vuln_points, log_weighted_vuln_event};
 
 mod scripts;
 pub use scripts::{Script, save_script, search_scripts, get_script_by_name, update_script_usage};
