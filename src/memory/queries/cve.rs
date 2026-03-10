@@ -48,6 +48,8 @@ pub async fn get_cached_cves(
                         "nvd" => CveSource::Nvd,
                         _ => CveSource::Osv,
                     },
+                    has_public_exploit: false,
+                    exploits: vec![],
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -152,6 +154,8 @@ mod tests {
                 }],
                 published: Some("2021-12-10".to_string()),
                 source: CveSource::Nvd,
+                has_public_exploit: false,
+                exploits: vec![],
             },
             CveRecord {
                 cve_id: "CVE-2023-12345".to_string(),
@@ -162,6 +166,8 @@ mod tests {
                 references: vec![],
                 published: None,
                 source: CveSource::Osv,
+                has_public_exploit: false,
+                exploits: vec![],
             },
         ]
     }
@@ -267,6 +273,8 @@ mod tests {
             references: vec![],
             published: None,
             source: CveSource::Osv,
+            has_public_exploit: false,
+            exploits: vec![],
         }];
         store_cached_cves(&conn, "replace_key".to_string(), new_records)
             .await

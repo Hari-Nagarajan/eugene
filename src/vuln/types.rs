@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::searchsploit::ExploitEntry;
+
 /// Unified CVE record consumed by all downstream code (enrichment, scoring, reporting).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CveRecord {
@@ -19,6 +21,12 @@ pub struct CveRecord {
     pub published: Option<String>,
     /// Which API provided this record
     pub source: CveSource,
+    /// Whether a public exploit is known to exist (via searchsploit)
+    #[serde(default)]
+    pub has_public_exploit: bool,
+    /// Public exploit entries from searchsploit/Exploit-DB
+    #[serde(default)]
+    pub exploits: Vec<ExploitEntry>,
 }
 
 /// CVSS v3.1 severity thresholds.
@@ -136,6 +144,8 @@ mod tests {
             }],
             published: Some("2021-12-10".to_string()),
             source: CveSource::Nvd,
+            has_public_exploit: false,
+            exploits: vec![],
         };
 
         let json = serde_json::to_string(&record).expect("serialize");

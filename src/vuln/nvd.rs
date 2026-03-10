@@ -238,6 +238,8 @@ fn nvd_cve_to_record(cve: NvdCve) -> CveRecord {
         references,
         published: cve.published,
         source: CveSource::Nvd,
+        has_public_exploit: false,
+        exploits: vec![],
     }
 }
 

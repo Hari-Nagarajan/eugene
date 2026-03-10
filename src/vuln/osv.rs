@@ -192,6 +192,8 @@ fn osv_vuln_to_cve_record(vuln: OsvVuln) -> CveRecord {
         references,
         published: vuln.published,
         source: CveSource::Osv,
+        has_public_exploit: false,
+        exploits: vec![],
     }
 }
 
