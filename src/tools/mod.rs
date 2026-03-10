@@ -80,6 +80,9 @@ pub use run_script::{RunScriptTool, RunScriptArgs, RunScriptResult};
 mod log_wifi_discovery;
 pub use log_wifi_discovery::{LogWifiDiscoveryTool, LogWifiDiscoveryArgs, LogWifiDiscoveryResult};
 
+mod check_exploit;
+pub use check_exploit::{CheckExploitTool, CheckExploitArgs, CheckExploitResult};
+
 use rig::completion::CompletionModel;
 use rig::tool::ToolDyn;
 use std::sync::Arc;
@@ -107,10 +110,10 @@ pub fn make_all_tools(
 }
 
 /// Create executor tools for dispatched executor agents.
-/// Returns 6 tools: recon tools (run_command, log_discovery, log_wifi_discovery) + script tools
-/// (save_script, search_scripts, run_script).
+/// Returns 7 tools: recon tools (run_command, log_discovery, log_wifi_discovery) + script tools
+/// (save_script, search_scripts, run_script) + vuln tools (check_exploit).
 ///
-/// Executors get recon and script tools (no dispatch tools, no memory recall,
+/// Executors get recon, script, and vuln tools (no dispatch tools, no memory recall,
 /// no scoring tools). This prevents infinite recursion (executor dispatching executor)
 /// while allowing script creation and reuse during task execution.
 pub fn make_executor_tools(
@@ -124,6 +127,7 @@ pub fn make_executor_tools(
         Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(RunScriptTool::new(memory.clone(), config)) as Box<dyn ToolDyn>,
         Box::new(LogWifiDiscoveryTool::new(memory)) as Box<dyn ToolDyn>,
+        Box::new(CheckExploitTool::new()) as Box<dyn ToolDyn>,
     ]
 }
 

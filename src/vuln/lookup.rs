@@ -21,6 +21,7 @@ use crate::memory::{get_cached_cves, store_cached_cves};
 use crate::vuln::cpe::{build_cpe, extract_version, service_to_cpe, service_to_osv};
 use crate::vuln::nvd::NvdClient;
 use crate::vuln::osv::OsvClient;
+use crate::vuln::searchsploit::search_exploits_for_cve;
 use crate::vuln::types::CveRecord;
 
 /// Maximum number of NVD get_cve calls for CVSS enrichment per lookup.
@@ -89,6 +90,16 @@ pub async fn lookup_cves(
                 record.cvss_vector = nvd_record.cvss_vector;
                 record.severity = nvd_record.severity;
             }
+        }
+    }
+
+    // 3.5. Enrich with searchsploit exploit data
+    for record in &mut records {
+        if record.cve_id.starts_with("CVE-") {
+            let bare_id = &record.cve_id[4..]; // Strip "CVE-" prefix
+            let (exploits, _warning) = search_exploits_for_cve(bare_id).await;
+            record.has_public_exploit = !exploits.is_empty();
+            record.exploits = exploits;
         }
     }
 
