@@ -48,7 +48,7 @@ pub async fn get_wifi_aps(
 ) -> Result<Vec<WifiAccessPoint>, MemoryError> {
     conn.call(move |conn| {
         let mut stmt = conn.prepare(
-            "SELECT id, run_id, bssid, essid, channel, frequency, encryption, cipher, auth, signal_dbm, first_seen, last_seen
+            "SELECT id, run_id, bssid, essid, channel, frequency, encryption, cipher, auth, signal_dbm, client_count, wps_enabled, first_seen, last_seen
              FROM wifi_access_points
              WHERE run_id = ?1
              ORDER BY signal_dbm DESC",
@@ -56,6 +56,7 @@ pub async fn get_wifi_aps(
 
         let aps = stmt
             .query_map(rusqlite::params![run_id], |row| {
+                let wps_raw: Option<i32> = row.get(11)?;
                 Ok(WifiAccessPoint {
                     id: row.get(0)?,
                     run_id: row.get(1)?,
@@ -67,8 +68,10 @@ pub async fn get_wifi_aps(
                     cipher: row.get(7)?,
                     auth: row.get(8)?,
                     signal_dbm: row.get(9)?,
-                    first_seen: row.get(10)?,
-                    last_seen: row.get(11)?,
+                    client_count: row.get(10)?,
+                    wps_enabled: wps_raw.map(|v| v != 0),
+                    first_seen: row.get(12)?,
+                    last_seen: row.get(13)?,
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;

@@ -205,7 +205,7 @@ CREATE INDEX IF NOT EXISTS idx_cve_cache_key ON cve_cache(cache_key);
 CREATE INDEX IF NOT EXISTS idx_cve_cache_severity ON cve_cache(severity);
 CREATE INDEX IF NOT EXISTS idx_cve_cache_fetched ON cve_cache(fetched_at);
 
--- 12. Wifi Access Points (discovered via passive scanning)
+-- 12. Wifi Access Points (discovered via passive/active scanning)
 CREATE TABLE IF NOT EXISTS wifi_access_points (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id       INTEGER,
@@ -217,6 +217,8 @@ CREATE TABLE IF NOT EXISTS wifi_access_points (
     cipher       TEXT,
     auth         TEXT,
     signal_dbm   INTEGER,
+    client_count INTEGER,
+    wps_enabled  INTEGER,
     first_seen   TEXT NOT NULL,
     last_seen    TEXT NOT NULL,
     FOREIGN KEY (run_id) REFERENCES runs(id),
