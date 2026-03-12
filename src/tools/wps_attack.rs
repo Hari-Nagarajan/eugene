@@ -92,16 +92,15 @@ fn parse_reaver_output(output: &str) -> (Option<String>, Option<String>) {
     let mut psk = None;
 
     for line in output.lines() {
-        if line.contains("WPS PIN:") {
-            // Extract text after "WPS PIN:" -- may be quoted with ' or not
-            if let Some(val) = extract_quoted_or_trailing(line, "WPS PIN:") {
-                pin = Some(val);
-            }
+        if line.contains("WPS PIN:")
+            && let Some(val) = extract_quoted_or_trailing(line, "WPS PIN:")
+        {
+            pin = Some(val);
         }
-        if line.contains("WPA PSK:") {
-            if let Some(val) = extract_quoted_or_trailing(line, "WPA PSK:") {
-                psk = Some(val);
-            }
+        if line.contains("WPA PSK:")
+            && let Some(val) = extract_quoted_or_trailing(line, "WPA PSK:")
+        {
+            psk = Some(val);
         }
     }
 
@@ -112,9 +111,9 @@ fn parse_reaver_output(output: &str) -> (Option<String>, Option<String>) {
 fn extract_quoted_or_trailing(line: &str, label: &str) -> Option<String> {
     let after = line.split(label).nth(1)?.trim();
     // Try single-quoted
-    if after.starts_with('\'') {
-        let end = after[1..].find('\'')?;
-        return Some(after[1..1 + end].to_string());
+    if let Some(inner) = after.strip_prefix('\'') {
+        let end = inner.find('\'')?;
+        return Some(inner[..end].to_string());
     }
     // Try unquoted -- take first whitespace-delimited token
     let token = after.split_whitespace().next()?;

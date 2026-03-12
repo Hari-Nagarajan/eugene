@@ -95,6 +95,9 @@ pub use capture_handshake::{CaptureHandshakeTool, CaptureHandshakeArgs, CaptureH
 mod wps_attack;
 pub use wps_attack::{WpsAttackTool, WpsAttackArgs, WpsAttackResult};
 
+mod crack_wpa;
+pub use crack_wpa::{CrackWpaTool, CrackWpaArgs, CrackWpaResult};
+
 mod check_exploit;
 pub use check_exploit::{CheckExploitTool, CheckExploitArgs, CheckExploitResult};
 
@@ -125,8 +128,8 @@ pub fn make_all_tools(
 }
 
 /// Create executor tools for dispatched executor agents.
-/// Returns 11 tools: recon tools (run_command, log_discovery, log_wifi_discovery, run_airodump, get_wifi_intel)
-/// + attack tools (capture_pmkid, capture_handshake)
+/// Returns 13 tools: recon tools (run_command, log_discovery, log_wifi_discovery, run_airodump, get_wifi_intel)
+/// + attack tools (capture_pmkid, capture_handshake, wps_attack, crack_wpa)
 /// + script tools (save_script, search_scripts, run_script) + vuln tools (check_exploit).
 ///
 /// Executors get recon, attack, script, and vuln tools (no dispatch tools, no memory recall,
@@ -146,7 +149,9 @@ pub fn make_executor_tools(
         Box::new(RunAirodumpTool::new(config.clone(), memory.clone())) as Box<dyn ToolDyn>,
         Box::new(GetWifiIntelTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(CapturePmkidTool::new(config.clone(), memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(CaptureHandshakeTool::new(config, memory)) as Box<dyn ToolDyn>,
+        Box::new(CaptureHandshakeTool::new(config.clone(), memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(WpsAttackTool::new(config.clone(), memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(CrackWpaTool::new(config, memory)) as Box<dyn ToolDyn>,
         Box::new(CheckExploitTool::new()) as Box<dyn ToolDyn>,
     ]
 }
