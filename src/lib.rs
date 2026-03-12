@@ -2,6 +2,7 @@ pub mod agent;
 pub mod bot;
 pub mod cli;
 pub mod config;
+pub mod init;
 pub mod executor;
 pub mod memory;
 pub mod orchestrator;
