@@ -35,7 +35,7 @@
 
 - [x] **Phase 10: Wifi Foundation** - Safety guardrails, adapter discovery, monitor mode management, passive scanning (completed 2026-03-08)
 - [x] **Phase 11: Active Recon** - Airodump scanning, CSV parser, wifi data layer, probe monitoring (completed 2026-03-12)
-- [ ] **Phase 12: Core Attacks** - WPA handshake, PMKID, WPS, cracking, scoring, attack path selection
+- [x] **Phase 12: Core Attacks** - WPA handshake, PMKID, WPS, cracking, scoring, attack path selection (completed 2026-03-12)
 - [ ] **Phase 13: Campaign Integration** - CLI subcommand, campaign workflow, reporting
 
 ## Phase Details
@@ -161,5 +161,5 @@ Plans:
 | 9. Agent Workflow Integration | v1.1 | 0/? | Paused | - |
 | 10. Wifi Foundation | v1.2 | 3/3 | Complete | 2026-03-08 |
 | 11. Active Recon | 3/3 | Complete    | 2026-03-12 | - |
-| 12. Core Attacks | 2/3 | In Progress|  | - |
+| 12. Core Attacks | 3/3 | Complete   | 2026-03-12 | - |
 | 13. Campaign Integration | v1.2 | 0/? | Not started | - |

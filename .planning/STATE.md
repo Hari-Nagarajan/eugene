@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Wifi Offensive Pipeline
 status: unknown
-last_updated: "2026-03-12T03:50:10.000Z"
+last_updated: "2026-03-12T03:58:18.000Z"
 progress:
   total_phases: 4
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 12 of 13 (Core Attacks) -- Plan 2 of 3 complete
-Plan: 2 of 3
-Status: Phase 12 in progress
-Last activity: 2026-03-11 -- Completed 12-02 (PMKID and handshake capture tools)
+Phase: 12 of 13 (Core Attacks) -- Plan 3 of 3 complete
+Plan: 3 of 3
+Status: Phase 12 complete
+Last activity: 2026-03-11 -- Completed 12-03 (WPS attack and WPA cracking tools)
 
-Progress: [████████░░] 67% (v1.2: 8/12 plans across 4 phases)
+Progress: [█████████░] 75% (v1.2: 9/12 plans across 4 phases)
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Progress: [████████░░] 67% (v1.2: 8/12 plans across 4 phases
 - Phase 11 Plan 03: 5 min (1 task, 5 files) -- probe intelligence + GetWifiIntelTool
 - Phase 12 Plan 01: 4 min (2 tasks, 8 files) -- attack foundation (safety, credentials, scoring, prompt)
 - Phase 12 Plan 02: 3 min (2 tasks, 3 files) -- PMKID + handshake capture tools
+- Phase 12 Plan 03: 6 min (2 tasks, 3 files) -- WPS attack + WPA cracking tools
 
 ## Accumulated Context
 
@@ -88,6 +89,11 @@ Recent decisions affecting current work:
 - [12-02]: Handshake verification parses aircrack-ng stdout for "1 handshake", not exit code (Pitfall 4)
 - [12-02]: Deauth count clamped to min(requested, 10) before safety validation -- defense in depth
 - [12-02]: CaptureHandshakeTool continues capture even if deauth blocked by cooldown -- passive capture possible
+- [12-03]: WPS brute force uses 10-minute default timeout with configurable override
+- [12-03]: Lockout detection via "AP rate limiting" warning or 3+ "WPS transaction failed" lines
+- [12-03]: CrackWpaTool default max_tier=2; tier 3 requires explicit agent decision (8hr runtime)
+- [12-03]: Wordlists generated at runtime from rockyou.txt head, not shipped as static files
+- [12-03]: KEY FOUND parsed from aircrack-ng stdout, not exit code (Pitfall 4 consistency)
 
 ### Pending Todos
 
@@ -100,8 +106,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-11
-Stopped at: Completed 12-02-PLAN.md (PMKID and handshake capture tools)
+Last session: 2026-03-12
+Stopped at: Completed 12-03-PLAN.md (WPS attack and WPA cracking tools)
 Resume file: None
 
-Next step: Continue Phase 12 with 12-03 (WPA cracking tool)
+Next step: Phase 12 complete. Continue with Phase 13 (Agent Workflow Integration)
