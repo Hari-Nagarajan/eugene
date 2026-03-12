@@ -24,7 +24,7 @@ Requirements for Wifi Offensive Pipeline milestone. Each maps to roadmap phases.
 - [x] **WRCN-03**: Custom airodump CSV parser handles two-section format, comma-space delimiters, hidden networks
 - [x] **WRCN-04**: AP findings stored with SSID, BSSID, channel, encryption, cipher, signal strength, client count
 - [x] **WRCN-05**: Client findings stored with MAC, associated BSSID, signal strength, probed SSIDs
-- [ ] **WRCN-06**: Agent monitors client probe requests and stores probed SSID intelligence
+- [x] **WRCN-06**: Agent monitors client probe requests and stores probed SSID intelligence
 
 ### Wifi Attacks
 
@@ -137,7 +137,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WRCN-03 | Phase 11 | Complete |
 | WRCN-04 | Phase 11 | Complete |
 | WRCN-05 | Phase 11 | Complete |
-| WRCN-06 | Phase 11 | Pending |
+| WRCN-06 | Phase 11 | Complete |
 | WATK-01 | Phase 12 | Pending |
 | WATK-02 | Phase 12 | Pending |
 | WATK-03 | Phase 12 | Pending |

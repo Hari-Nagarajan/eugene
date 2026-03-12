@@ -8,7 +8,7 @@ progress:
   total_phases: 3
   completed_phases: 3
   total_plans: 7
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 11 of 13 (Active Recon) -- Plan 2 of 3 complete
-Plan: 2 of 3
-Status: Phase 11 Plan 02 complete (wifi data layer + RunAirodumpTool)
-Last activity: 2026-03-11 -- Completed 11-02 (wifi client/probe schema + RunAirodumpTool)
+Phase: 11 of 13 (Active Recon) -- Plan 3 of 3 complete
+Plan: 3 of 3
+Status: Phase 11 complete (all 3 plans done)
+Last activity: 2026-03-11 -- Completed 11-03 (probe intelligence + GetWifiIntelTool)
 
-Progress: [██████░░░░] 42% (v1.2: 5/12 plans across 4 phases)
+Progress: [██████░░░░] 50% (v1.2: 6/12 plans across 4 phases)
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [██████░░░░] 42% (v1.2: 5/12 plans across 4 phases
 - Phase 10 Plan 03: 4 min (2 tasks, 6 files)
 - Phase 11 Plan 01: 5 min (2 tasks, 5 files) -- airodump CSV parser (TDD)
 - Phase 11 Plan 02: 5 min (2 tasks, 7 files) -- wifi data layer + RunAirodumpTool
+- Phase 11 Plan 03: 5 min (1 task, 5 files) -- probe intelligence + GetWifiIntelTool
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [11-02]: insert_client_probe uses INSERT OR IGNORE -- UNIQUE constraint handles dedup silently
 - [11-02]: RunAirodumpTool uses error-as-value pattern -- returns Ok(empty result) for operational failures
 - [11-02]: SIGTERM via kill command avoids unsafe libc; 5-second wait timeout with force kill fallback
+- [11-03]: AP attack score: (signal+100) * (1+clients) * encryption_weight (WEP=3, WPA=2, WPA2=1, OPN=0.5)
+- [11-03]: WPA2 check ordered before WPA in encryption_weight match to avoid incorrect branch
 
 ### Pending Todos
 
@@ -90,7 +93,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-11
-Stopped at: Completed 11-02-PLAN.md (wifi data layer + RunAirodumpTool)
+Stopped at: Completed 11-03-PLAN.md (probe intelligence + GetWifiIntelTool)
 Resume file: None
 
-Next step: Continue Phase 11 Plan 03
+Next step: Phase 11 complete. Begin Phase 12 (Wifi Attacks)
