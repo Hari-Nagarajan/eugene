@@ -1,6 +1,115 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use serde::{Deserialize, Serialize};
+
+// ---------------------------------------------------------------------------
+// EugeneConfig -- TOML-backed configuration file (~/.eugene/config.toml)
+// ---------------------------------------------------------------------------
+
+/// Top-level TOML config structure.
+/// All fields are Option so we can distinguish "not in file" from "set in file".
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct EugeneConfig {
+    #[serde(default)]
+    pub llm: LlmConfig,
+    #[serde(default)]
+    pub telegram: TelegramConfig,
+    #[serde(default)]
+    pub database: DatabaseConfig,
+    #[serde(default)]
+    pub wifi: WifiConfig,
+    #[serde(default)]
+    pub vulnerability: VulnConfig,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct LlmConfig {
+    pub provider: Option<String>,
+    pub api_key: Option<String>,
+    pub model: Option<String>,
+    pub base_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct TelegramConfig {
+    pub bot_token: Option<String>,
+    pub allowed_chat_ids: Option<Vec<i64>>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct DatabaseConfig {
+    pub path: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct WifiConfig {
+    pub interface: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+pub struct VulnConfig {
+    pub nvd_api_key: Option<String>,
+}
+
+/// Returns the eugene home directory: ~/.eugene
+pub fn eugene_home() -> PathBuf {
+    dirs::home_dir()
+        .expect("Could not determine home directory")
+        .join(".eugene")
+}
+
+/// Returns the config file path: ~/.eugene/config.toml
+pub fn config_path() -> PathBuf {
+    eugene_home().join("config.toml")
+}
+
+impl EugeneConfig {
+    /// Load config from ~/.eugene/config.toml.
+    /// Returns Default if file is missing or malformed (logs warning on malformed).
+    pub fn load_from_file() -> Self {
+        Self::load_from_path(&config_path())
+    }
+
+    /// Load config from an arbitrary path (useful for testing).
+    pub fn load_from_path(path: &PathBuf) -> Self {
+        let content = match std::fs::read_to_string(path) {
+            Ok(c) => c,
+            Err(_) => return Self::default(),
+        };
+        match toml::from_str(&content) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                eprintln!("Warning: failed to parse config file {:?}: {}", path, e);
+                Self::default()
+            }
+        }
+    }
+
+    /// Save config to ~/.eugene/config.toml, creating ~/.eugene if needed.
+    /// Sets chmod 600 on unix.
+    pub fn save_to_file(&self) -> Result<(), anyhow::Error> {
+        self.save_to_path(&config_path())
+    }
+
+    /// Save config to an arbitrary path (useful for testing).
+    pub fn save_to_path(&self, path: &PathBuf) -> Result<(), anyhow::Error> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        std::fs::write(path, &content)?;
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        }
+
+        Ok(())
+    }
+}
+
 /// Default per-tool timeouts in seconds.
 fn default_tool_timeouts() -> HashMap<&'static str, u64> {
     HashMap::from([
@@ -107,6 +216,97 @@ impl Default for Config {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ---- EugeneConfig tests ----
+
+    #[test]
+    fn test_eugene_config_default_all_none() {
+        let cfg = EugeneConfig::default();
+        assert!(cfg.llm.provider.is_none());
+        assert!(cfg.llm.api_key.is_none());
+        assert!(cfg.llm.model.is_none());
+        assert!(cfg.llm.base_url.is_none());
+        assert!(cfg.telegram.bot_token.is_none());
+        assert!(cfg.telegram.allowed_chat_ids.is_none());
+        assert!(cfg.database.path.is_none());
+        assert!(cfg.wifi.interface.is_none());
+        assert!(cfg.vulnerability.nvd_api_key.is_none());
+    }
+
+    #[test]
+    fn test_eugene_config_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+
+        let cfg = EugeneConfig {
+            llm: LlmConfig {
+                provider: Some("minimax".to_string()),
+                api_key: Some("sk-test-123".to_string()),
+                model: Some("MiniMax-M2.5".to_string()),
+                base_url: Some("https://example.com".to_string()),
+            },
+            telegram: TelegramConfig {
+                bot_token: Some("bot-token".to_string()),
+                allowed_chat_ids: Some(vec![123, 456]),
+            },
+            database: DatabaseConfig {
+                path: Some("/tmp/test.db".to_string()),
+            },
+            wifi: WifiConfig {
+                interface: Some("wlan1".to_string()),
+            },
+            vulnerability: VulnConfig {
+                nvd_api_key: Some("nvd-key".to_string()),
+            },
+        };
+
+        cfg.save_to_path(&path).unwrap();
+        let loaded = EugeneConfig::load_from_path(&path);
+        assert_eq!(cfg, loaded);
+    }
+
+    #[test]
+    fn test_eugene_config_missing_file_returns_default() {
+        let path = PathBuf::from("/tmp/nonexistent_eugene_test_config.toml");
+        let cfg = EugeneConfig::load_from_path(&path);
+        assert_eq!(cfg, EugeneConfig::default());
+    }
+
+    #[test]
+    fn test_eugene_config_malformed_file_returns_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "this is not [valid toml = = =").unwrap();
+        let cfg = EugeneConfig::load_from_path(&path);
+        assert_eq!(cfg, EugeneConfig::default());
+    }
+
+    #[test]
+    fn test_eugene_config_partial_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[llm]\nprovider = \"openrouter\"\n").unwrap();
+        let cfg = EugeneConfig::load_from_path(&path);
+        assert_eq!(cfg.llm.provider, Some("openrouter".to_string()));
+        // Other sections should be default
+        assert!(cfg.telegram.bot_token.is_none());
+        assert!(cfg.database.path.is_none());
+        assert!(cfg.wifi.interface.is_none());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_eugene_config_save_sets_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let cfg = EugeneConfig::default();
+        cfg.save_to_path(&path).unwrap();
+        let perms = std::fs::metadata(&path).unwrap().permissions();
+        assert_eq!(perms.mode() & 0o777, 0o600);
+    }
+
+    // ---- Existing Config tests ----
 
     #[test]
     fn test_config_default_max_concurrent_executors() {
