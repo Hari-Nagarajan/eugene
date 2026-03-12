@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Wifi Offensive Pipeline
 status: unknown
-last_updated: "2026-03-10T18:41:05.240Z"
+last_updated: "2026-03-12T03:07:05.835Z"
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 7
-  completed_plans: 9
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 ## Current Position
 
-Phase: 11 of 13 (Active Recon) -- Plan 3 of 3 complete
-Plan: 3 of 3
-Status: Phase 11 complete (all 3 plans done)
-Last activity: 2026-03-11 -- Completed 11-03 (probe intelligence + GetWifiIntelTool)
+Phase: 12 of 13 (Core Attacks) -- Plan 1 of 3 complete
+Plan: 1 of 3
+Status: Phase 12 in progress
+Last activity: 2026-03-11 -- Completed 12-01 (attack foundation: safety, credentials, scoring, prompt)
 
-Progress: [██████░░░░] 50% (v1.2: 6/12 plans across 4 phases)
+Progress: [███████░░░] 58% (v1.2: 7/12 plans across 4 phases)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [██████░░░░] 50% (v1.2: 6/12 plans across 4 phases
 - Phase 11 Plan 01: 5 min (2 tasks, 5 files) -- airodump CSV parser (TDD)
 - Phase 11 Plan 02: 5 min (2 tasks, 7 files) -- wifi data layer + RunAirodumpTool
 - Phase 11 Plan 03: 5 min (1 task, 5 files) -- probe intelligence + GetWifiIntelTool
+- Phase 12 Plan 01: 4 min (2 tasks, 8 files) -- attack foundation (safety, credentials, scoring, prompt)
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [11-02]: SIGTERM via kill command avoids unsafe libc; 5-second wait timeout with force kill fallback
 - [11-03]: AP attack score: (signal+100) * (1+clients) * encryption_weight (WEP=3, WPA=2, WPA2=1, OPN=0.5)
 - [11-03]: WPA2 check ordered before WPA in encryption_weight match to avoid incorrect branch
+- [12-01]: Deauth count==0 (infinite) blocked alongside count>10 -- aireplay-ng 0 means continuous flood
+- [12-01]: Per-BSSID cooldown uses LazyLock<Mutex<HashMap>> static -- lightweight, no external state
+- [12-01]: wifi_credentials uses UNIQUE(run_id, bssid) -- one credential per AP per run
 
 ### Pending Todos
 
@@ -93,7 +97,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-11
-Stopped at: Completed 11-03-PLAN.md (probe intelligence + GetWifiIntelTool)
+Stopped at: Completed 12-01-PLAN.md (attack foundation: safety, credentials, scoring, prompt)
 Resume file: None
 
-Next step: Phase 11 complete. Begin Phase 12 (Wifi Attacks)
+Next step: Continue Phase 12 with 12-02 (PMKID/handshake capture tools)

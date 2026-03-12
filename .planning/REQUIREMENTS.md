@@ -34,13 +34,13 @@ Requirements for Wifi Offensive Pipeline milestone. Each maps to roadmap phases.
 - [ ] **WATK-04**: Agent captures PMKID via hcxdumptool + hcxpcapngtool without requiring connected clients
 - [ ] **WATK-05**: Agent detects WPS-enabled APs via `wash` and attempts Pixie Dust attack first
 - [ ] **WATK-06**: Agent falls back to reaver/bully online brute force for WPS if Pixie Dust fails
-- [ ] **WATK-07**: Safety layer caps deauth packet count to prevent continuous flooding
+- [x] **WATK-07**: Safety layer caps deauth packet count to prevent continuous flooding
 
 ### Scoring & Decision
 
-- [ ] **WSCR-01**: Wifi-specific score events (AP discovered, handshake captured, PSK cracked, etc.) integrated into scoring system
-- [ ] **WSCR-02**: Signal strength (dBm) factors into EV calculation as P(success) modifier
-- [ ] **WSCR-03**: Orchestrator autonomously selects attack path based on encryption type, client count, signal, WPS status
+- [x] **WSCR-01**: Wifi-specific score events (AP discovered, handshake captured, PSK cracked, etc.) integrated into scoring system
+- [x] **WSCR-02**: Signal strength (dBm) factors into EV calculation as P(success) modifier
+- [x] **WSCR-03**: Orchestrator autonomously selects attack path based on encryption type, client count, signal, WPS status
 
 ### Campaign & Reporting
 
@@ -144,10 +144,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WATK-04 | Phase 12 | Pending |
 | WATK-05 | Phase 12 | Pending |
 | WATK-06 | Phase 12 | Pending |
-| WATK-07 | Phase 12 | Pending |
-| WSCR-01 | Phase 12 | Pending |
-| WSCR-02 | Phase 12 | Pending |
-| WSCR-03 | Phase 12 | Pending |
+| WATK-07 | Phase 12 | Complete |
+| WSCR-01 | Phase 12 | Complete |
+| WSCR-02 | Phase 12 | Complete |
+| WSCR-03 | Phase 12 | Complete |
 | WCMP-01 | Phase 13 | Pending |
 | WCMP-02 | Phase 13 | Pending |
 | WCMP-03 | Phase 13 | Pending |

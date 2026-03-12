@@ -161,5 +161,5 @@ Plans:
 | 9. Agent Workflow Integration | v1.1 | 0/? | Paused | - |
 | 10. Wifi Foundation | v1.2 | 3/3 | Complete | 2026-03-08 |
 | 11. Active Recon | 3/3 | Complete    | 2026-03-12 | - |
-| 12. Core Attacks | v1.2 | 0/3 | Planning complete | - |
+| 12. Core Attacks | 1/3 | In Progress|  | - |
 | 13. Campaign Integration | v1.2 | 0/? | Not started | - |
