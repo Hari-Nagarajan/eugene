@@ -89,6 +89,9 @@ pub use get_wifi_intel::{GetWifiIntelTool, GetWifiIntelArgs, GetWifiIntelResult}
 mod capture_pmkid;
 pub use capture_pmkid::{CapturePmkidTool, CapturePmkidArgs, CapturePmkidResult};
 
+mod capture_handshake;
+pub use capture_handshake::{CaptureHandshakeTool, CaptureHandshakeArgs, CaptureHandshakeResult};
+
 mod check_exploit;
 pub use check_exploit::{CheckExploitTool, CheckExploitArgs, CheckExploitResult};
 
@@ -119,10 +122,11 @@ pub fn make_all_tools(
 }
 
 /// Create executor tools for dispatched executor agents.
-/// Returns 9 tools: recon tools (run_command, log_discovery, log_wifi_discovery, run_airodump, get_wifi_intel)
+/// Returns 11 tools: recon tools (run_command, log_discovery, log_wifi_discovery, run_airodump, get_wifi_intel)
+/// + attack tools (capture_pmkid, capture_handshake)
 /// + script tools (save_script, search_scripts, run_script) + vuln tools (check_exploit).
 ///
-/// Executors get recon, script, and vuln tools (no dispatch tools, no memory recall,
+/// Executors get recon, attack, script, and vuln tools (no dispatch tools, no memory recall,
 /// no scoring tools). This prevents infinite recursion (executor dispatching executor)
 /// while allowing script creation and reuse during task execution.
 pub fn make_executor_tools(
@@ -136,8 +140,10 @@ pub fn make_executor_tools(
         Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(RunScriptTool::new(memory.clone(), config.clone())) as Box<dyn ToolDyn>,
         Box::new(LogWifiDiscoveryTool::new(memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(RunAirodumpTool::new(config, memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(GetWifiIntelTool::new(memory)) as Box<dyn ToolDyn>,
+        Box::new(RunAirodumpTool::new(config.clone(), memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(GetWifiIntelTool::new(memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(CapturePmkidTool::new(config.clone(), memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(CaptureHandshakeTool::new(config, memory)) as Box<dyn ToolDyn>,
         Box::new(CheckExploitTool::new()) as Box<dyn ToolDyn>,
     ]
 }
