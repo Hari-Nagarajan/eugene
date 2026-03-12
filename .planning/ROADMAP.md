@@ -123,12 +123,12 @@ Plans:
   3. Agent detects WPS-enabled APs via `wash`, attempts Pixie Dust attack first, and falls back to online brute force via reaver/bully if Pixie Dust fails
   4. Deauth packet count is capped by the safety layer to prevent continuous flooding
   5. Orchestrator autonomously selects the attack path (handshake vs PMKID vs WPS) based on encryption type, client count, signal strength, and WPS status, with signal strength factoring into EV calculation
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
-- [ ] 12-03: TBD
+- [ ] 12-01-PLAN.md -- Safety deauth limiting, wifi_credentials schema, scoring extension, prompt guidance (Wave 1)
+- [ ] 12-02-PLAN.md -- CapturePmkidTool, CaptureHandshakeTool with handshake verification (Wave 2)
+- [ ] 12-03-PLAN.md -- WpsAttackTool (wash + Pixie Dust + brute force), CrackWpaTool (3-tier wordlist) (Wave 3)
 
 ### Phase 13: Campaign Integration
 **Goal**: Agent runs complete wifi offensive campaigns end-to-end via CLI or as part of full recon campaigns, with structured reporting across all output channels
@@ -160,6 +160,6 @@ Plans:
 | 8. Vulnerability Tools | v1.1 | Complete    | 2026-03-10 | - |
 | 9. Agent Workflow Integration | v1.1 | 0/? | Paused | - |
 | 10. Wifi Foundation | v1.2 | 3/3 | Complete | 2026-03-08 |
-| 11. Active Recon | 3/3 | Complete   | 2026-03-12 | - |
-| 12. Core Attacks | v1.2 | 0/? | Not started | - |
+| 11. Active Recon | 3/3 | Complete    | 2026-03-12 | - |
+| 12. Core Attacks | v1.2 | 0/3 | Planning complete | - |
 | 13. Campaign Integration | v1.2 | 0/? | Not started | - |

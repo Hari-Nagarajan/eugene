@@ -286,6 +286,101 @@ pub async fn get_matched_probes(
     .map_err(MemoryError::from)
 }
 
+/// A wifi credential record (cracked PSK).
+#[derive(Debug, Clone, Serialize)]
+pub struct WifiCredential {
+    pub id: i64,
+    pub run_id: Option<i64>,
+    pub bssid: String,
+    pub essid: Option<String>,
+    pub psk: String,
+    pub crack_method: String,
+    pub cap_file: Option<String>,
+    pub cracked_at: String,
+}
+
+/// Insert a cracked wifi credential into the database.
+///
+/// Returns the rowid of the inserted row. Uses UNIQUE(run_id, bssid) so
+/// re-inserting the same BSSID in the same run will fail (use a different method
+/// or update manually if needed).
+pub async fn insert_wifi_credential(
+    conn: &Connection,
+    run_id: Option<i64>,
+    bssid: String,
+    essid: Option<String>,
+    psk: String,
+    crack_method: String,
+    cap_file: Option<String>,
+) -> Result<i64, MemoryError> {
+    let cracked_at = Utc::now().to_rfc3339();
+
+    conn.call(move |conn| {
+        conn.execute(
+            "INSERT INTO wifi_credentials (run_id, bssid, essid, psk, crack_method, cap_file, cracked_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![run_id, bssid, essid, psk, crack_method, cap_file, cracked_at],
+        )?;
+        Ok(conn.last_insert_rowid())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Retrieve all wifi credentials for a given run, ordered by most recent first.
+pub async fn get_wifi_credentials(
+    conn: &Connection,
+    run_id: i64,
+) -> Result<Vec<WifiCredential>, MemoryError> {
+    conn.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, run_id, bssid, essid, psk, crack_method, cap_file, cracked_at
+             FROM wifi_credentials
+             WHERE run_id = ?1
+             ORDER BY cracked_at DESC",
+        )?;
+
+        let creds = stmt
+            .query_map(rusqlite::params![run_id], |row| {
+                Ok(WifiCredential {
+                    id: row.get(0)?,
+                    run_id: row.get(1)?,
+                    bssid: row.get(2)?,
+                    essid: row.get(3)?,
+                    psk: row.get(4)?,
+                    crack_method: row.get(5)?,
+                    cap_file: row.get(6)?,
+                    cracked_at: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(creds)
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
+/// Update the wps_enabled flag on a wifi access point.
+pub async fn update_wps_enabled(
+    conn: &Connection,
+    run_id: i64,
+    bssid: String,
+    wps_enabled: bool,
+) -> Result<(), MemoryError> {
+    let wps_val: i32 = if wps_enabled { 1 } else { 0 };
+
+    conn.call(move |conn| {
+        conn.execute(
+            "UPDATE wifi_access_points SET wps_enabled = ?3 WHERE run_id = ?1 AND bssid = ?2",
+            rusqlite::params![run_id, bssid, wps_val],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -743,6 +838,77 @@ mod tests {
         assert_eq!(matched[0].ap_signal, Some(-35));
         assert_eq!(matched[0].client_signal, Some(-45));
         assert_eq!(matched[0].associated_bssid.as_deref(), Some("AA:BB:CC:DD:EE:FF"));
+    }
+
+    // -- Wifi credential tests --
+
+    #[tokio::test]
+    async fn test_insert_and_retrieve_wifi_credential() {
+        let (conn, run_id) = setup().await;
+
+        let id = insert_wifi_credential(
+            &conn,
+            Some(run_id),
+            "AA:BB:CC:DD:EE:FF".to_string(),
+            Some("TargetNet".to_string()),
+            "secretpassword123".to_string(),
+            "handshake".to_string(),
+            Some("/tmp/capture.cap".to_string()),
+        )
+        .await
+        .unwrap();
+
+        assert!(id > 0, "insert_wifi_credential should return valid ID");
+
+        let creds = get_wifi_credentials(&conn, run_id).await.unwrap();
+        assert_eq!(creds.len(), 1);
+        assert_eq!(creds[0].bssid, "AA:BB:CC:DD:EE:FF");
+        assert_eq!(creds[0].essid.as_deref(), Some("TargetNet"));
+        assert_eq!(creds[0].psk, "secretpassword123");
+        assert_eq!(creds[0].crack_method, "handshake");
+        assert_eq!(creds[0].cap_file.as_deref(), Some("/tmp/capture.cap"));
+    }
+
+    #[tokio::test]
+    async fn test_update_wps_enabled_sets_flag() {
+        let (conn, run_id) = setup().await;
+
+        // Insert an AP with wps_enabled = None
+        insert_wifi_ap(
+            &conn,
+            Some(run_id),
+            "AA:BB:CC:DD:EE:FF".to_string(),
+            Some("TestNet".to_string()),
+            Some(6),
+            None,
+            None,
+            None,
+            None,
+            Some(-42),
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Verify wps_enabled is None initially
+        let aps = get_wifi_aps(&conn, run_id).await.unwrap();
+        assert_eq!(aps[0].wps_enabled, None);
+
+        // Set wps_enabled to true
+        update_wps_enabled(&conn, run_id, "AA:BB:CC:DD:EE:FF".to_string(), true)
+            .await
+            .unwrap();
+
+        let aps = get_wifi_aps(&conn, run_id).await.unwrap();
+        assert_eq!(aps[0].wps_enabled, Some(true));
+
+        // Set wps_enabled to false
+        update_wps_enabled(&conn, run_id, "AA:BB:CC:DD:EE:FF".to_string(), false)
+            .await
+            .unwrap();
+
+        let aps = get_wifi_aps(&conn, run_id).await.unwrap();
+        assert_eq!(aps[0].wps_enabled, Some(false));
     }
 
     #[tokio::test]

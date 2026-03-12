@@ -3,7 +3,9 @@ pub use errors::SafetyError;
 
 use ipnet::IpNet;
 use regex::Regex;
-use std::sync::LazyLock;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex};
+use std::time::Instant;
 use std::net::IpAddr;
 
 /// Shell metacharacter detection regex - blocks ; & | ` $ ( ) > and newlines
@@ -35,6 +37,46 @@ const WIFI_ATTACK_BINARIES: &[&str] = &[
     "hcxdumptool", "hostapd", "wash", "reaver", "bully",
     "iw", "iwconfig",
 ];
+
+/// Per-BSSID deauth cooldown tracker. Maps BSSID -> last deauth timestamp.
+static DEAUTH_TRACKER: LazyLock<Mutex<HashMap<String, Instant>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Deauth cooldown period in seconds.
+const DEAUTH_COOLDOWN_SECS: u64 = 30;
+
+/// Maximum allowed deauth packet count per burst.
+const DEAUTH_MAX_COUNT: u32 = 10;
+
+/// Parse the deauth packet count from aireplay-ng arguments.
+///
+/// Looks for `--deauth` or `-0` and parses the next argument as a u32.
+/// If the next argument is missing or starts with `-`, defaults to 1
+/// (aireplay-ng default behavior).
+fn parse_deauth_count(parts: &[&str]) -> u32 {
+    for (i, part) in parts.iter().enumerate() {
+        if *part == "--deauth" || *part == "-0" {
+            if let Some(next) = parts.get(i + 1) {
+                if next.starts_with('-') {
+                    return 1; // Next arg is a flag, count defaults to 1
+                }
+                return next.parse::<u32>().unwrap_or(1);
+            }
+            return 1; // No next arg, defaults to 1
+        }
+    }
+    1
+}
+
+/// Parse the BSSID from aireplay-ng `-a` flag.
+fn parse_bssid_arg(parts: &[&str]) -> Option<String> {
+    for (i, part) in parts.iter().enumerate() {
+        if *part == "-a" {
+            return parts.get(i + 1).map(|s| s.to_string());
+        }
+    }
+    None
+}
 
 /// Enforce rate-limiting flags on scan tools.
 ///
@@ -106,6 +148,32 @@ pub fn validate_wifi_command(
         return Err(SafetyError::BlockedWifiCommand(
             "airmon-ng check kill is blocked: it kills NetworkManager and severs C2".into(),
         ));
+    }
+
+    // Deauth rate limiting for aireplay-ng
+    if binary == "aireplay-ng"
+        && (parts.contains(&"--deauth") || parts.contains(&"-0"))
+    {
+        let count = parse_deauth_count(&parts);
+        // count == 0 means infinite in aireplay-ng, must be blocked
+        if count == 0 {
+            return Err(SafetyError::DeauthExceedsLimit(0));
+        }
+        if count > DEAUTH_MAX_COUNT {
+            return Err(SafetyError::DeauthExceedsLimit(count));
+        }
+        // Per-BSSID cooldown check
+        if let Some(bssid) = parse_bssid_arg(&parts) {
+            let mut tracker = DEAUTH_TRACKER.lock().unwrap();
+            if let Some(last_time) = tracker.get(&bssid) {
+                let elapsed = last_time.elapsed().as_secs();
+                if elapsed < DEAUTH_COOLDOWN_SECS {
+                    let remaining = DEAUTH_COOLDOWN_SECS - elapsed;
+                    return Err(SafetyError::DeauthCooldown(bssid, remaining));
+                }
+            }
+            tracker.insert(bssid, Instant::now());
+        }
     }
 
     // For wifi binaries, ensure they only target the ALFA interface
@@ -374,6 +442,91 @@ mod tests {
         // Test 8: Case sensitivity for binary detection
         assert!(validate_command("nmap -sS target.com", None).is_ok());
         assert!(validate_command("/usr/bin/nmap -sS target.com", None).is_ok());
+    }
+
+    // --- Deauth safety tests ---
+
+    #[test]
+    fn test_deauth_rejects_count_over_10() {
+        let result = validate_wifi_command(
+            "aireplay-ng --deauth 15 -a AA:BB:CC:DD:EE:FF wlan1",
+            Some("wlan1"),
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SafetyError::DeauthExceedsLimit(count) => assert_eq!(count, 15),
+            other => panic!("expected DeauthExceedsLimit, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_deauth_allows_count_under_10() {
+        // Clear tracker for this BSSID to avoid cooldown interference
+        {
+            let mut tracker = DEAUTH_TRACKER.lock().unwrap();
+            tracker.remove("11:22:33:44:55:66");
+        }
+        let result = validate_wifi_command(
+            "aireplay-ng --deauth 5 -a 11:22:33:44:55:66 wlan1",
+            Some("wlan1"),
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_deauth_rejects_zero_infinite() {
+        let result = validate_wifi_command(
+            "aireplay-ng --deauth 0 -a AA:BB:CC:DD:EE:FF wlan1",
+            Some("wlan1"),
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SafetyError::DeauthExceedsLimit(count) => assert_eq!(count, 0),
+            other => panic!("expected DeauthExceedsLimit, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_deauth_cooldown_per_bssid() {
+        let bssid = "CC:CC:CC:CC:CC:CC";
+        // Clear tracker
+        {
+            let mut tracker = DEAUTH_TRACKER.lock().unwrap();
+            tracker.remove(bssid);
+        }
+
+        // First call should succeed
+        let result = validate_wifi_command(
+            &format!("aireplay-ng --deauth 3 -a {bssid} wlan1"),
+            Some("wlan1"),
+        );
+        assert!(result.is_ok(), "First deauth should succeed");
+
+        // Second immediate call should fail with cooldown
+        let result = validate_wifi_command(
+            &format!("aireplay-ng --deauth 3 -a {bssid} wlan1"),
+            Some("wlan1"),
+        );
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            SafetyError::DeauthCooldown(b, remaining) => {
+                assert_eq!(b, bssid);
+                assert!(remaining > 0 && remaining <= 30);
+            }
+            other => panic!("expected DeauthCooldown, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_deauth_count_variants() {
+        // --deauth 5
+        assert_eq!(parse_deauth_count(&["aireplay-ng", "--deauth", "5", "-a", "AA:BB:CC:DD:EE:FF"]), 5);
+        // -0 3
+        assert_eq!(parse_deauth_count(&["aireplay-ng", "-0", "3", "-a", "AA:BB:CC:DD:EE:FF"]), 3);
+        // --deauth with no count (next arg is a flag)
+        assert_eq!(parse_deauth_count(&["aireplay-ng", "--deauth", "-a", "AA:BB:CC:DD:EE:FF"]), 1);
+        // --deauth at end of args
+        assert_eq!(parse_deauth_count(&["aireplay-ng", "-a", "AA:BB:CC:DD:EE:FF", "--deauth"]), 1);
     }
 
     // --- Config-related tests ---

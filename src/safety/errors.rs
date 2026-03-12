@@ -19,4 +19,10 @@ pub enum SafetyError {
 
     #[error("Blocked: {0}")]
     BlockedWifiCommand(String),
+
+    #[error("Blocked: deauth packet count {0} exceeds limit of 10")]
+    DeauthExceedsLimit(u32),
+
+    #[error("Blocked: deauth cooldown for BSSID {0}, {1}s remaining")]
+    DeauthCooldown(String, u64),
 }

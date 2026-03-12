@@ -258,3 +258,18 @@ CREATE TABLE IF NOT EXISTS wifi_client_probes (
 
 CREATE INDEX IF NOT EXISTS idx_wifi_probe_ssid ON wifi_client_probes(probed_ssid);
 CREATE INDEX IF NOT EXISTS idx_wifi_probe_client ON wifi_client_probes(client_mac);
+
+-- 15. Wifi Credentials (cracked PSKs from handshake/PMKID/WPS attacks)
+CREATE TABLE IF NOT EXISTS wifi_credentials (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id       INTEGER,
+    bssid        TEXT NOT NULL,
+    essid        TEXT,
+    psk          TEXT NOT NULL,
+    crack_method TEXT NOT NULL CHECK(crack_method IN ('handshake', 'pmkid', 'wps')),
+    cap_file     TEXT,
+    cracked_at   TEXT NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES runs(id),
+    UNIQUE(run_id, bssid)
+);
+CREATE INDEX IF NOT EXISTS idx_wifi_cred_bssid ON wifi_credentials(bssid);
