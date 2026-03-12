@@ -22,6 +22,14 @@ pub enum Commands {
     /// Manage scheduled tasks
     #[command(subcommand)]
     Schedule(ScheduleCommands),
+    /// Run a standalone wifi offensive campaign
+    Wifi {
+        /// Target BSSID or SSID filter (optional, scans all if omitted)
+        target: Option<String>,
+        /// Output report to stdout without TUI
+        #[arg(long)]
+        no_tui: bool,
+    },
     /// Generate systemd user service file
     Service,
 }
@@ -140,5 +148,41 @@ mod tests {
     fn test_cli_service() {
         let cli = Cli::parse_from(["eugene", "service"]);
         assert!(matches!(cli.command, Commands::Service));
+    }
+
+    #[test]
+    fn test_cli_wifi_no_args() {
+        let cli = Cli::parse_from(["eugene", "wifi"]);
+        match cli.command {
+            Commands::Wifi { target, no_tui } => {
+                assert_eq!(target, None);
+                assert!(!no_tui);
+            }
+            _ => panic!("Expected Wifi command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_wifi_with_target() {
+        let cli = Cli::parse_from(["eugene", "wifi", "AA:BB:CC:DD:EE:FF"]);
+        match cli.command {
+            Commands::Wifi { target, no_tui } => {
+                assert_eq!(target.as_deref(), Some("AA:BB:CC:DD:EE:FF"));
+                assert!(!no_tui);
+            }
+            _ => panic!("Expected Wifi command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_wifi_no_tui_flag() {
+        let cli = Cli::parse_from(["eugene", "wifi", "--no-tui"]);
+        match cli.command {
+            Commands::Wifi { target, no_tui } => {
+                assert_eq!(target, None);
+                assert!(no_tui);
+            }
+            _ => panic!("Expected Wifi command"),
+        }
     }
 }

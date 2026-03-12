@@ -162,6 +162,43 @@ pub fn create_executor_agent<M: CompletionModel>(
         .build()
 }
 
+/// Create a wifi-specific orchestrator agent.
+///
+/// Identical to `create_orchestrator_agent` but uses `wifi_orchestrator_prompt`
+/// with wifi-specific campaign phases and sequential-only dispatch rules.
+pub fn create_wifi_orchestrator_agent<M: CompletionModel + Clone + Send + Sync + 'static>(
+    model: M,
+    config: Arc<Config>,
+    memory: Arc<Connection>,
+    semaphore: Arc<Semaphore>,
+    run_id: i64,
+    available_tools: &AvailableTools,
+) -> Agent<M>
+where
+    M::Response: Send,
+    M::StreamingResponse: Send,
+{
+    let model_arc = Arc::new(model);
+    let available_tools_arc = Arc::new(available_tools.clone());
+    let tools = make_orchestrator_tools(
+        model_arc.clone(),
+        config,
+        memory,
+        semaphore,
+        run_id,
+        available_tools_arc,
+    );
+    let preamble = prompt::wifi_orchestrator_prompt(available_tools);
+
+    AgentBuilder::new((*model_arc).clone())
+        .preamble(&preamble)
+        .tools(tools)
+        .temperature(0.3)
+        .max_tokens(4096)
+        .default_max_turns(20)
+        .build()
+}
+
 /// Run a full multi-phase recon campaign using the orchestrator agent.
 ///
 /// Lifecycle:
@@ -221,6 +258,67 @@ where
         Ok(result) => {
             let _ = update_run(&memory, run_id, "completed").await;
             Ok(result)
+        }
+        Err(e) => {
+            let _ = update_run(&memory, run_id, "failed").await;
+            Err(e)
+        }
+    }
+}
+
+/// Run a standalone wifi offensive campaign.
+///
+/// Similar to `run_campaign()` but specialized for wifi:
+/// - Creates run with `wifi_campaign` trigger type
+/// - Uses `Semaphore::new(1)` for sequential ALFA adapter access
+/// - Uses `wifi_orchestrator_prompt` with wifi-specific phases
+///
+/// Returns `(summary_string, run_id)` so callers can generate a WifiReport.
+pub async fn run_wifi_campaign<M: CompletionModel + Clone + Send + Sync + 'static>(
+    model: M,
+    config: Arc<Config>,
+    memory: Arc<Connection>,
+    target: Option<&str>,
+) -> Result<(String, i64), anyhow::Error>
+where
+    M::Response: Send,
+    M::StreamingResponse: Send,
+{
+    // Check which tools are available on this system
+    let available_tools = tools_available::check_available_tools().await;
+
+    // Create run record with wifi_campaign trigger
+    let run_id = create_run(&memory, "wifi_campaign".to_string(), target.map(String::from)).await?;
+
+    // Semaphore=1: single ALFA adapter cannot run concurrent wifi operations
+    let semaphore = Arc::new(Semaphore::new(1));
+
+    // Build wifi-specific orchestrator agent
+    let orchestrator = create_wifi_orchestrator_agent(
+        model,
+        config,
+        memory.clone(),
+        semaphore,
+        run_id,
+        &available_tools,
+    );
+
+    // Build wifi campaign prompt
+    let prompt = match target {
+        Some(t) => format!(
+            "Run a wifi offensive campaign targeting: {}. Execute all phases.",
+            t,
+        ),
+        None => "Run a wifi offensive campaign. Scan all visible networks, select \
+                 high-value targets, attempt attacks, crack credentials."
+            .to_string(),
+    };
+
+    // Execute and handle success/failure
+    match run_recon_task(&orchestrator, &prompt).await {
+        Ok(result) => {
+            let _ = update_run(&memory, run_id, "completed").await;
+            Ok((result, run_id))
         }
         Err(e) => {
             let _ = update_run(&memory, run_id, "failed").await;
