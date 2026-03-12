@@ -86,6 +86,9 @@ pub use run_airodump::{RunAirodumpTool, RunAirodumpArgs, RunAirodumpResult};
 mod get_wifi_intel;
 pub use get_wifi_intel::{GetWifiIntelTool, GetWifiIntelArgs, GetWifiIntelResult};
 
+mod capture_pmkid;
+pub use capture_pmkid::{CapturePmkidTool, CapturePmkidArgs, CapturePmkidResult};
+
 mod check_exploit;
 pub use check_exploit::{CheckExploitTool, CheckExploitArgs, CheckExploitResult};
 
