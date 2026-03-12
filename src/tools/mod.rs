@@ -92,6 +92,9 @@ pub use capture_pmkid::{CapturePmkidTool, CapturePmkidArgs, CapturePmkidResult};
 mod capture_handshake;
 pub use capture_handshake::{CaptureHandshakeTool, CaptureHandshakeArgs, CaptureHandshakeResult};
 
+mod wps_attack;
+pub use wps_attack::{WpsAttackTool, WpsAttackArgs, WpsAttackResult};
+
 mod check_exploit;
 pub use check_exploit::{CheckExploitTool, CheckExploitArgs, CheckExploitResult};
 
