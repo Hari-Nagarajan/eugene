@@ -35,6 +35,12 @@ pub fn points_for_action(action: &str) -> Option<i64> {
         "rce_achieved" => Some(200),
         "data_exfiltrated" => Some(100),
         "detection" => Some(-100),
+        // Wifi-specific actions
+        "ap_discovered" => Some(5),
+        "handshake_captured" => Some(30),
+        "psk_cracked" => Some(75),
+        "pmkid_captured" => Some(30),
+        "wps_pin_found" => Some(50),
         _ => None,
     }
 }
@@ -162,6 +168,45 @@ mod tests {
         assert_eq!(points_for_action("rce_achieved"), Some(200));
         assert_eq!(points_for_action("data_exfiltrated"), Some(100));
         assert_eq!(points_for_action("detection"), Some(-100));
+    }
+
+    #[test]
+    fn test_points_for_wifi_actions() {
+        assert_eq!(points_for_action("ap_discovered"), Some(5));
+        assert_eq!(points_for_action("handshake_captured"), Some(30));
+        assert_eq!(points_for_action("psk_cracked"), Some(75));
+        assert_eq!(points_for_action("pmkid_captured"), Some(30));
+        assert_eq!(points_for_action("wps_pin_found"), Some(50));
+    }
+
+    #[tokio::test]
+    async fn test_log_wifi_score_event() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        let event_id = log_score_event(
+            &conn,
+            Some(run_id),
+            "handshake_captured".to_string(),
+            "medium".to_string(),
+            false,
+        )
+        .await
+        .unwrap();
+        assert!(event_id > 0);
+
+        let points: i64 = conn
+            .call(move |conn| {
+                Ok(conn.query_row(
+                    "SELECT points FROM score_events WHERE id = ?1",
+                    rusqlite::params![event_id],
+                    |row| row.get(0),
+                )?)
+            })
+            .await
+            .unwrap();
+        assert_eq!(points, 30);
     }
 
     #[test]

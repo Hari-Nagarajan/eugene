@@ -115,6 +115,28 @@ When a discovered vulnerability has a CVSS score and exploit availability data f
 Remote exploits (type: remote) are more directly applicable than local exploits. \
 Prefer targets with remote exploits when multiple options have similar EV.
 
+### Signal Strength P(success) for Wifi Attacks
+When planning wifi attacks, factor signal strength into success probability:
+- Strong (> -50 dBm): P(success) = 1.0x (optimal range)
+- Good (-50 to -65 dBm): P(success) = 0.8x (reliable)
+- Weak (-65 to -80 dBm): P(success) = 0.5x (degraded, may need repositioning)
+- Very Weak (< -80 dBm): P(success) = 0.2x (unreliable, consider skipping)
+
+### Wifi Attack Path Selection
+Based on get_wifi_intel results, select attacks in this order:
+1. PMKID capture (no clients needed, fast, always try first on WPA/WPA2 networks)
+2. WPA handshake capture (requires clients for deauth, use if PMKID fails)
+3. WPS Pixie Dust (if WPS enabled, fast offline attack, always try on WPS-enabled APs)
+4. WPS brute force (if Pixie Dust fails, 10-minute limit, stop immediately on lockout detection)
+
+Attack tool selection:
+- capture_pmkid: For PMKID-based attacks (clientless, preferred first attempt)
+- capture_handshake: For WPA handshake via deauth + capture (needs connected clients)
+- wps_attack: For WPS Pixie Dust and online brute force (requires WPS-enabled AP)
+- crack_wpa: For cracking captured handshakes/PMKIDs with multi-tier wordlist strategy
+
+Signal strength directly affects capture reliability. Skip targets below -80 dBm unless no better options exist.
+
 If detected (IDS alert, connection reset, IP blocked), log a detection event immediately \
 with log_score. Adjust strategy: switch to lower-profile techniques or move to a different target.
 
