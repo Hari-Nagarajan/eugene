@@ -12,12 +12,201 @@ use crate::wifi::types::{ParseResult, ParsedAP, ParsedClient};
 /// 2. Client section (header starts with "Station MAC")
 ///
 /// Fields are delimited by `, ` (comma-space). Malformed rows are skipped.
-pub fn parse_airodump_csv(_csv_text: &str) -> ParseResult {
-    // Stub: returns empty result. Tests should fail.
+pub fn parse_airodump_csv(csv_text: &str) -> ParseResult {
+    let mut aps = Vec::new();
+    let mut clients = Vec::new();
+    let mut skipped_rows: usize = 0;
+
+    // Track which section we're in
+    #[derive(PartialEq)]
+    enum Section {
+        None,
+        Ap,
+        Client,
+    }
+    let mut section = Section::None;
+
+    for line in csv_text.lines() {
+        let trimmed = line.trim();
+
+        // Skip empty lines (section separators)
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Detect section headers
+        if trimmed.starts_with("BSSID") {
+            section = Section::Ap;
+            continue;
+        }
+        if trimmed.starts_with("Station MAC") {
+            section = Section::Client;
+            continue;
+        }
+
+        match section {
+            Section::Ap => match parse_ap_row(line) {
+                Some(ap) => aps.push(ap),
+                None => skipped_rows += 1,
+            },
+            Section::Client => match parse_client_row(line) {
+                Some(client) => clients.push(client),
+                None => skipped_rows += 1,
+            },
+            Section::None => {
+                // Data before any header -- skip
+            }
+        }
+    }
+
+    // Compute client_count per AP BSSID from associated clients
+    for ap in &mut aps {
+        ap.client_count = clients
+            .iter()
+            .filter(|c| c.bssid.as_deref() == Some(&ap.bssid))
+            .count() as i32;
+    }
+
     ParseResult {
-        aps: Vec::new(),
-        clients: Vec::new(),
-        skipped_rows: 0,
+        aps,
+        clients,
+        skipped_rows,
+    }
+}
+
+/// Parse a single AP row from the CSV. Returns None if the row is malformed.
+///
+/// Expected columns (15 fields, comma-space delimited):
+/// BSSID, First time seen, Last time seen, channel, Speed, Privacy, Cipher,
+/// Authentication, Power, # beacons, # IV, LAN IP, ID-length, ESSID, Key
+fn parse_ap_row(line: &str) -> Option<ParsedAP> {
+    // Strip trailing comma (airodump lines often end with `,` without space after)
+    let line = line.trim_end().trim_end_matches(',');
+    let fields: Vec<&str> = line.split(", ").collect();
+    if fields.len() < 14 {
+        return None;
+    }
+
+    let bssid = fields[0].trim().to_string();
+    // Basic BSSID validation: XX:XX:XX:XX:XX:XX (17 chars, 5 colons)
+    if bssid.len() != 17 || bssid.chars().filter(|c| *c == ':').count() != 5 {
+        return None;
+    }
+
+    let channel = fields[3].trim().parse::<i32>().ok();
+    let speed = fields[4].trim().parse::<i32>().ok();
+
+    let privacy = parse_optional_string(fields[5]);
+    let cipher = parse_optional_string(fields[6]);
+    let auth = parse_optional_string(fields[7]);
+
+    let power_raw = fields[8].trim().parse::<i32>().ok();
+    // Map -1 to None (sentinel for no signal data)
+    let power = power_raw.and_then(|p| if p == -1 { None } else { Some(p) });
+
+    let beacons = fields[9].trim().parse::<i32>().ok();
+    let iv = fields[10].trim().parse::<i32>().ok();
+    let lan_ip = parse_optional_string(fields[11]);
+    let id_length = fields[12].trim().parse::<i32>().ok();
+
+    // ESSID is field 13 -- may be empty (hidden SSID) or contain special chars
+    let essid = if fields.len() > 13 {
+        let raw = fields[13].trim();
+        if raw.is_empty() {
+            None
+        } else {
+            Some(raw.to_string())
+        }
+    } else {
+        None
+    };
+
+    // Key is field 14 (optional, usually empty)
+    let key = if fields.len() > 14 {
+        parse_optional_string(fields[14])
+    } else {
+        None
+    };
+
+    Some(ParsedAP {
+        bssid,
+        first_seen: fields[1].trim().to_string(),
+        last_seen: fields[2].trim().to_string(),
+        channel,
+        speed,
+        privacy,
+        cipher,
+        auth,
+        power,
+        beacons,
+        iv,
+        lan_ip,
+        id_length,
+        essid,
+        key,
+        client_count: 0, // Computed after all rows parsed
+    })
+}
+
+/// Parse a single client row from the CSV. Returns None if the row is malformed.
+///
+/// Expected columns (6+ fields, comma-space delimited):
+/// Station MAC, First time seen, Last time seen, Power, # packets, BSSID, [Probed ESSIDs...]
+fn parse_client_row(line: &str) -> Option<ParsedClient> {
+    // Strip trailing comma (airodump lines often end with `,` without space after)
+    let line = line.trim_end().trim_end_matches(',');
+    let fields: Vec<&str> = line.split(", ").collect();
+    if fields.len() < 6 {
+        return None;
+    }
+
+    let station_mac = fields[0].trim().to_string();
+    // Basic MAC validation
+    if station_mac.len() != 17 || station_mac.chars().filter(|c| *c == ':').count() != 5 {
+        return None;
+    }
+
+    let bssid_raw = fields[5].trim();
+    let bssid = if bssid_raw == "(not associated)" {
+        None
+    } else {
+        Some(bssid_raw.to_string())
+    };
+
+    let power_raw = fields[3].trim().parse::<i32>().ok();
+    let power = power_raw.and_then(|p| if p == -1 { None } else { Some(p) });
+
+    let packets = fields[4].trim().parse::<i32>().ok();
+
+    // Everything from field 6 onward is probed ESSIDs
+    let probed_essids: Vec<String> = if fields.len() > 6 {
+        fields[6..]
+            .iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    Some(ParsedClient {
+        station_mac,
+        first_seen: fields[1].trim().to_string(),
+        last_seen: fields[2].trim().to_string(),
+        power,
+        packets,
+        bssid,
+        probed_essids,
+    })
+}
+
+/// Parse a trimmed field into an Optional String. Empty/whitespace-only becomes None.
+fn parse_optional_string(field: &str) -> Option<String> {
+    let trimmed = field.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
     }
 }
 
