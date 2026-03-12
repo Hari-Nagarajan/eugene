@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Wifi Offensive Pipeline
 status: unknown
-last_updated: "2026-03-12T03:07:05.835Z"
+last_updated: "2026-03-12T03:50:10.000Z"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** Autonomously run multi-phase network reconnaissance and exploitation against a target network, making intelligent decisions without human intervention
-**Current focus:** v1.2 Wifi Offensive Pipeline -- Phase 11 (Active Recon)
+**Current focus:** v1.2 Wifi Offensive Pipeline -- Phase 12 (Core Attacks)
 
 ## Current Position
 
-Phase: 12 of 13 (Core Attacks) -- Plan 1 of 3 complete
-Plan: 1 of 3
+Phase: 12 of 13 (Core Attacks) -- Plan 2 of 3 complete
+Plan: 2 of 3
 Status: Phase 12 in progress
-Last activity: 2026-03-11 -- Completed 12-01 (attack foundation: safety, credentials, scoring, prompt)
+Last activity: 2026-03-11 -- Completed 12-02 (PMKID and handshake capture tools)
 
-Progress: [███████░░░] 58% (v1.2: 7/12 plans across 4 phases)
+Progress: [████████░░] 67% (v1.2: 8/12 plans across 4 phases)
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Progress: [███████░░░] 58% (v1.2: 7/12 plans across 4 phases
 - Phase 11 Plan 02: 5 min (2 tasks, 7 files) -- wifi data layer + RunAirodumpTool
 - Phase 11 Plan 03: 5 min (1 task, 5 files) -- probe intelligence + GetWifiIntelTool
 - Phase 12 Plan 01: 4 min (2 tasks, 8 files) -- attack foundation (safety, credentials, scoring, prompt)
+- Phase 12 Plan 02: 3 min (2 tasks, 3 files) -- PMKID + handshake capture tools
 
 ## Accumulated Context
 
@@ -84,6 +85,9 @@ Recent decisions affecting current work:
 - [12-01]: Deauth count==0 (infinite) blocked alongside count>10 -- aireplay-ng 0 means continuous flood
 - [12-01]: Per-BSSID cooldown uses LazyLock<Mutex<HashMap>> static -- lightweight, no external state
 - [12-01]: wifi_credentials uses UNIQUE(run_id, bssid) -- one credential per AP per run
+- [12-02]: Handshake verification parses aircrack-ng stdout for "1 handshake", not exit code (Pitfall 4)
+- [12-02]: Deauth count clamped to min(requested, 10) before safety validation -- defense in depth
+- [12-02]: CaptureHandshakeTool continues capture even if deauth blocked by cooldown -- passive capture possible
 
 ### Pending Todos
 
@@ -97,7 +101,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-11
-Stopped at: Completed 12-01-PLAN.md (attack foundation: safety, credentials, scoring, prompt)
+Stopped at: Completed 12-02-PLAN.md (PMKID and handshake capture tools)
 Resume file: None
 
-Next step: Continue Phase 12 with 12-02 (PMKID/handshake capture tools)
+Next step: Continue Phase 12 with 12-03 (WPA cracking tool)

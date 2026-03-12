@@ -28,10 +28,10 @@ Requirements for Wifi Offensive Pipeline milestone. Each maps to roadmap phases.
 
 ### Wifi Attacks
 
-- [ ] **WATK-01**: Agent captures WPA handshake via airodump background capture + aireplay-ng deauth
-- [ ] **WATK-02**: Agent verifies handshake quality with aircrack-ng before attempting crack
+- [x] **WATK-01**: Agent captures WPA handshake via airodump background capture + aireplay-ng deauth
+- [x] **WATK-02**: Agent verifies handshake quality with aircrack-ng before attempting crack
 - [ ] **WATK-03**: Agent cracks WPA with multi-wordlist strategy (fast list first, then rockyou.txt)
-- [ ] **WATK-04**: Agent captures PMKID via hcxdumptool + hcxpcapngtool without requiring connected clients
+- [x] **WATK-04**: Agent captures PMKID via hcxdumptool + hcxpcapngtool without requiring connected clients
 - [ ] **WATK-05**: Agent detects WPS-enabled APs via `wash` and attempts Pixie Dust attack first
 - [ ] **WATK-06**: Agent falls back to reaver/bully online brute force for WPS if Pixie Dust fails
 - [x] **WATK-07**: Safety layer caps deauth packet count to prevent continuous flooding
@@ -138,10 +138,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WRCN-04 | Phase 11 | Complete |
 | WRCN-05 | Phase 11 | Complete |
 | WRCN-06 | Phase 11 | Complete |
-| WATK-01 | Phase 12 | Pending |
-| WATK-02 | Phase 12 | Pending |
+| WATK-01 | Phase 12 | Complete |
+| WATK-02 | Phase 12 | Complete |
 | WATK-03 | Phase 12 | Pending |
-| WATK-04 | Phase 12 | Pending |
+| WATK-04 | Phase 12 | Complete |
 | WATK-05 | Phase 12 | Pending |
 | WATK-06 | Phase 12 | Pending |
 | WATK-07 | Phase 12 | Complete |
