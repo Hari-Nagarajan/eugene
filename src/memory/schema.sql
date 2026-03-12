@@ -227,3 +227,34 @@ CREATE TABLE IF NOT EXISTS wifi_access_points (
 
 CREATE INDEX IF NOT EXISTS idx_wifi_ap_bssid ON wifi_access_points(bssid);
 CREATE INDEX IF NOT EXISTS idx_wifi_ap_run ON wifi_access_points(run_id);
+
+-- 13. Wifi Clients (stations discovered via airodump-ng)
+CREATE TABLE IF NOT EXISTS wifi_clients (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id          INTEGER,
+    mac             TEXT NOT NULL,
+    associated_bssid TEXT,
+    signal_dbm      INTEGER,
+    packets         INTEGER,
+    first_seen      TEXT NOT NULL,
+    last_seen       TEXT NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES runs(id),
+    UNIQUE(run_id, mac)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wifi_client_mac ON wifi_clients(mac);
+CREATE INDEX IF NOT EXISTS idx_wifi_client_run ON wifi_clients(run_id);
+
+-- 14. Wifi Client Probes (SSIDs probed by client stations)
+CREATE TABLE IF NOT EXISTS wifi_client_probes (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id          INTEGER,
+    client_mac      TEXT NOT NULL,
+    probed_ssid     TEXT NOT NULL,
+    first_seen      TEXT NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES runs(id),
+    UNIQUE(run_id, client_mac, probed_ssid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wifi_probe_ssid ON wifi_client_probes(probed_ssid);
+CREATE INDEX IF NOT EXISTS idx_wifi_probe_client ON wifi_client_probes(client_mac);

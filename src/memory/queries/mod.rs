@@ -29,4 +29,4 @@ mod cve;
 pub use cve::{get_cached_cves, store_cached_cves, delete_stale_cves};
 
 mod wifi;
-pub use wifi::{insert_wifi_ap, get_wifi_aps};
+pub use wifi::{insert_wifi_ap, get_wifi_aps, insert_wifi_client, insert_client_probe, get_wifi_clients, migrate_wifi_schema, WifiClient};

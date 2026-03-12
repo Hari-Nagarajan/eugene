@@ -130,6 +130,7 @@ impl Tool for LogWifiDiscoveryTool {
             args.cipher,
             args.auth,
             args.signal_dbm,
+            None, // client_count not available from manual discovery
         )
         .await?;
 
