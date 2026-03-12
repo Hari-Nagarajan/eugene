@@ -12,20 +12,36 @@ async fn main() -> Result<(), anyhow::Error> {
     pretty_env_logger::init();
     log::info!("eugene starting, RUST_LOG={}", std::env::var("RUST_LOG").unwrap_or_default());
     let cli = Cli::parse();
-    let config = Arc::new(Config::load());
+    let mut config = Config::load();
+
+    // CLI flags are highest priority (CLI > config.toml > env var > defaults)
+    if let Some(ref p) = cli.provider {
+        config.provider = Some(p.clone());
+    }
+    if let Some(ref m) = cli.model {
+        config.model = Some(m.clone());
+    }
+
+    let config = Arc::new(config);
 
     match cli.command {
+        Commands::Init => {
+            eugene::init::run_wizard().await?;
+        }
         Commands::Run { target } => {
+            require_llm_config(&config)?;
             let db = open_memory_store(&config.db_path).await?;
             init_schema(&db).await?;
             eugene::tui::run_tui(target, config, db).await?;
         }
         Commands::Bot => {
+            require_llm_config(&config)?;
             let db = open_memory_store(&config.db_path).await?;
             init_schema(&db).await?;
             eugene::bot::start_bot(config, db).await?;
         }
         Commands::Schedule(subcmd) => {
+            require_llm_config(&config)?;
             let db = open_memory_store(&config.db_path).await?;
             init_schema(&db).await?;
 
@@ -75,6 +91,7 @@ async fn main() -> Result<(), anyhow::Error> {
             }
         }
         Commands::Wifi { target, no_tui } => {
+            require_llm_config(&config)?;
             let db = open_memory_store(&config.db_path).await?;
             init_schema(&db).await?;
             if no_tui {
@@ -94,5 +111,16 @@ async fn main() -> Result<(), anyhow::Error> {
         }
     }
 
+    Ok(())
+}
+
+fn require_llm_config(config: &Config) -> Result<(), anyhow::Error> {
+    if config.provider.is_none() && config.minimax_api_key.is_none() {
+        anyhow::bail!(
+            "No LLM provider configured.\n\n\
+             Run `eugene init` to set up your provider, or set MINIMAX_API_KEY environment variable.\n\
+             You can also create ~/.eugene/config.toml manually."
+        );
+    }
     Ok(())
 }

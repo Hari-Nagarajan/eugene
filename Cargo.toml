@@ -43,6 +43,7 @@ cvss = { version = "2.2", features = ["serde"] }
 openssl = { version = "0.10", features = ["vendored"] }
 toml = "1.0"
 dirs = "6.0"
+dialoguer = "0.12"
 
 [features]
 live-tests = []

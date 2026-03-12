@@ -4,6 +4,14 @@ use clap::{Parser, Subcommand};
 #[derive(Parser)]
 #[command(name = "eugene", version, about = "Autonomous Recon Agent")]
 pub struct Cli {
+    /// Override LLM provider for this run (minimax, openrouter)
+    #[arg(long, global = true)]
+    pub provider: Option<String>,
+
+    /// Override LLM model for this run
+    #[arg(long, global = true)]
+    pub model: Option<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -30,6 +38,8 @@ pub enum Commands {
         #[arg(long)]
         no_tui: bool,
     },
+    /// Interactively set up LLM provider configuration
+    Init,
     /// Generate systemd user service file
     Service,
 }
@@ -184,5 +194,47 @@ mod tests {
             }
             _ => panic!("Expected Wifi command"),
         }
+    }
+
+    #[test]
+    fn test_cli_init() {
+        let cli = Cli::parse_from(["eugene", "init"]);
+        assert!(matches!(cli.command, Commands::Init));
+    }
+
+    #[test]
+    fn test_cli_global_provider_flag() {
+        let cli = Cli::parse_from(["eugene", "run", "--provider", "openrouter"]);
+        assert_eq!(cli.provider, Some("openrouter".to_string()));
+    }
+
+    #[test]
+    fn test_cli_global_model_flag() {
+        let cli = Cli::parse_from(["eugene", "run", "--model", "anthropic/claude-sonnet-4"]);
+        assert_eq!(cli.model, Some("anthropic/claude-sonnet-4".to_string()));
+    }
+
+    #[test]
+    fn test_cli_global_flags_with_wifi() {
+        let cli = Cli::parse_from(["eugene", "wifi", "--provider", "minimax", "--no-tui"]);
+        assert_eq!(cli.provider, Some("minimax".to_string()));
+        match cli.command {
+            Commands::Wifi { no_tui, .. } => assert!(no_tui),
+            _ => panic!("Expected Wifi command"),
+        }
+    }
+
+    #[test]
+    fn test_cli_no_global_flags_default() {
+        let cli = Cli::parse_from(["eugene", "run"]);
+        assert_eq!(cli.provider, None);
+        assert_eq!(cli.model, None);
+    }
+
+    #[test]
+    fn test_cli_global_flags_with_bot() {
+        let cli = Cli::parse_from(["eugene", "bot", "--provider", "openrouter", "--model", "gpt-4o"]);
+        assert_eq!(cli.provider, Some("openrouter".to_string()));
+        assert_eq!(cli.model, Some("gpt-4o".to_string()));
     }
 }
