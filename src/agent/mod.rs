@@ -14,20 +14,20 @@
 //! The agent uses rig's multi-turn tool-calling loop to chain reconnaissance operations:
 //! scan -> analyze -> log findings -> chain additional scans -> summarize.
 //!
-//! # Example (with real MiniMax client)
+//! # Example (with config-driven client)
 //! ```no_run
 //! use eugene::agent::{create_agent, run_recon_task};
+//! use eugene::agent::client::create_client;
 //! use eugene::agent::tools_available::AvailableTools;
 //! use eugene::config::Config;
 //! use eugene::memory::{open_memory_store, init_schema};
-//! use rig::prelude::CompletionClient;
 //! use std::sync::Arc;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let (client, model_name) = eugene::agent::client::create_minimax_client()?;
-//!     let model = client.completion_model(&model_name);
-//!     let config = Arc::new(Config::default());
+//!     let config = Config::load();
+//!     let model = create_client(&config)?;
+//!     let config = Arc::new(config);
 //!     let memory = open_memory_store("eugene.db").await?;
 //!     init_schema(&memory).await?;
 //!     let tools = AvailableTools::default();

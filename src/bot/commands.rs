@@ -9,7 +9,7 @@ use super::formatting::{escape_html, format_findings, format_status, format_wifi
 use super::session;
 use super::BotState;
 
-use crate::agent::client::create_minimax_client;
+use crate::agent::client::create_client;
 use crate::agent::run_campaign;
 use crate::memory::{clear_session, get_findings_by_host, get_run_summary};
 use crate::wifi::report::WifiReport;
@@ -111,8 +111,7 @@ async fn handle_run(
         let prompt_clone = prompt.clone();
         let db_clone = db.clone();
         let result = run_with_typing(&bot_clone, chat_id, async move {
-            let (client, model_name) = create_minimax_client()?;
-            let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
+            let model = create_client(&config)?;
             run_campaign(model, config, db_clone, Some(&prompt_clone)).await
         })
         .await;

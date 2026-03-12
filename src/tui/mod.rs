@@ -24,7 +24,7 @@ use std::time::Duration;
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use tokio_rusqlite::Connection;
 
-use crate::agent::client::create_minimax_client;
+use crate::agent::client::create_client;
 use crate::agent::run_campaign;
 use crate::agent::run_wifi_campaign;
 use crate::config::Config;
@@ -152,19 +152,17 @@ pub async fn run_tui(
     let display_target = target.clone().unwrap_or_else(|| "auto-discover".to_string());
     let mut app = App::new(display_target);
 
-    // Create MiniMax client and spawn agent campaign
+    // Create client and spawn agent campaign
     let agent_config = config.clone();
     let agent_db = db.clone();
     let _agent_handle = tokio::spawn(async move {
-        let client_result = create_minimax_client();
-        let (client, model_name) = match client_result {
-            Ok(pair) => pair,
+        let model = match create_client(&agent_config) {
+            Ok(m) => m,
             Err(e) => {
                 let _ = tx.send(AgentEvent::AgentError(e.to_string())).await;
                 return;
             }
         };
-        let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
 
         let _ = tx
             .send(AgentEvent::PhaseStarted("Campaign".to_string()))
@@ -284,19 +282,17 @@ pub async fn run_tui_wifi(
     let display_target = target.clone().unwrap_or_else(|| "auto-discover".to_string());
     let mut app = App::new(display_target);
 
-    // Create MiniMax client and spawn wifi campaign
+    // Create client and spawn wifi campaign
     let agent_config = config.clone();
     let agent_db = db.clone();
     let _agent_handle = tokio::spawn(async move {
-        let client_result = create_minimax_client();
-        let (client, model_name) = match client_result {
-            Ok(pair) => pair,
+        let model = match create_client(&agent_config) {
+            Ok(m) => m,
             Err(e) => {
                 let _ = tx.send(AgentEvent::AgentError(e.to_string())).await;
                 return;
             }
         };
-        let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
 
         let _ = tx
             .send(AgentEvent::PhaseStarted("Wifi Campaign".to_string()))

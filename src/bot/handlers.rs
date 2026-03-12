@@ -237,11 +237,10 @@ async fn handle_chat_message(
         }
     });
 
-    // Create MiniMax client and run
+    // Create client and run
     let text_owned = text.to_string();
-    let result = match crate::agent::client::create_minimax_client() {
-        Ok((client, model_name)) => {
-            let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
+    let result = match crate::agent::client::create_client(&config) {
+        Ok(model) => {
             crate::agent::run_campaign(model, config, db.clone(), Some(&text_owned)).await
         }
         Err(e) => Err(e),

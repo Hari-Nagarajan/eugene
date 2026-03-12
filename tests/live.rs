@@ -11,18 +11,18 @@ mod common;
 
 static DOTENV: LazyLock<()> = LazyLock::new(|| { let _ = dotenvy::dotenv(); });
 
-use eugene::agent::client::create_minimax_client;
+use eugene::agent::client::create_client;
 use eugene::agent::create_agent;
+use eugene::config::Config;
 use rig::completion::Prompt;
-use rig::prelude::CompletionClient;
 
 #[tokio::test]
 async fn test_live_agent_responds() {
     LazyLock::force(&DOTENV);
     let (config, memory) = common::setup_env().await;
 
-    let (client, model_name) = create_minimax_client();
-    let model = client.completion_model(&model_name);
+    let llm_config = Config::load();
+    let model = create_client(&llm_config).expect("Failed to create client");
 
     let agent = create_agent(model, config, memory);
     let result: String = agent

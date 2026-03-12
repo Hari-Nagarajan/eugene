@@ -78,9 +78,7 @@ async fn main() -> Result<(), anyhow::Error> {
             let db = open_memory_store(&config.db_path).await?;
             init_schema(&db).await?;
             if no_tui {
-                let (client, model_name) = eugene::agent::client::create_minimax_client()?;
-                let model =
-                    rig::prelude::CompletionClient::completion_model(&client, &model_name);
+                let model = eugene::agent::client::create_client(&config)?;
                 let (result, run_id) =
                     eugene::agent::run_wifi_campaign(model, config, db.clone(), target.as_deref())
                         .await?;
