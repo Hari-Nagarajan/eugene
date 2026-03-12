@@ -5,13 +5,14 @@ use teloxide::prelude::*;
 use teloxide::types::ChatAction;
 use teloxide::utils::command::BotCommands;
 
-use super::formatting::{escape_html, format_findings, format_status, send_chunked, send_chunked_plain};
+use super::formatting::{escape_html, format_findings, format_status, format_wifi_report, send_chunked, send_chunked_plain};
 use super::session;
 use super::BotState;
 
 use crate::agent::client::create_minimax_client;
 use crate::agent::run_campaign;
 use crate::memory::{clear_session, get_findings_by_host, get_run_summary};
+use crate::wifi::report::WifiReport;
 
 /// Bot command enum derived with teloxide BotCommands
 #[derive(BotCommands, Clone)]
@@ -120,6 +121,25 @@ async fn handle_run(
             Ok(response) => {
                 session::save_chat_history(&db, &chat_id_str, &prompt, &response, &history).await;
                 let _ = send_chunked_plain(&bot_clone, chat_id, &response).await;
+
+                // Check for wifi findings and send wifi report if any
+                let wifi_run_id = db.call(|conn| {
+                    conn.query_row(
+                        "SELECT MAX(id) FROM runs WHERE status = 'completed'",
+                        [],
+                        |row| row.get::<_, i64>(0),
+                    )
+                    .map_err(|e| e.into())
+                }).await;
+
+                if let Ok(run_id) = wifi_run_id {
+                    if let Ok(report) = WifiReport::from_run(&db, run_id).await {
+                        if !report.networks.is_empty() {
+                            let html = format_wifi_report(&report);
+                            let _ = send_chunked(&bot_clone, chat_id, &html).await;
+                        }
+                    }
+                }
             }
             Err(e) => {
                 let _ = bot_clone

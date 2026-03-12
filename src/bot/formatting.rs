@@ -4,6 +4,7 @@ use teloxide::prelude::*;
 use teloxide::types::ParseMode;
 
 use crate::memory::{Finding, RunSummary, ScheduledTask};
+use crate::wifi::report::WifiReport;
 
 /// Maximum Telegram message length (leave margin from 4096 limit)
 const MAX_MESSAGE_LENGTH: usize = 4000;
@@ -118,6 +119,14 @@ pub fn format_findings(findings: &[Finding]) -> String {
         );
     }
     out
+}
+
+/// Format a WifiReport as HTML for Telegram delivery.
+///
+/// Thin wrapper around `WifiReport::format_telegram()` for API consistency
+/// with the existing `format_status()` / `format_findings()` pattern.
+pub fn format_wifi_report(report: &WifiReport) -> String {
+    report.format_telegram()
 }
 
 /// Format a list of scheduled tasks as HTML

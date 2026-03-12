@@ -13,6 +13,27 @@ use super::tools_available::AvailableTools;
 pub fn orchestrator_prompt(tools: &AvailableTools) -> String {
     let tools_section = tools.format_section();
 
+    let wifi_phases = if !tools.wifi.is_empty() {
+        "\n\
+### Phase 6: Wifi Discovery (if ALFA adapter available)
+Dispatch task to run airodump-ng scan for visible APs, clients, probe requests.
+Use run_airodump tool with 30-second scan duration.
+
+### Phase 7: Wifi Attack (if wifi targets found)
+Based on get_wifi_intel results, dispatch attack tasks:
+- PMKID capture on WPA/WPA2 networks (clientless, always try first)
+- Handshake capture with deauth on networks with connected clients
+- WPS Pixie Dust on WPS-enabled APs
+Dispatch attacks SEQUENTIALLY (single ALFA adapter -- never parallel wifi tasks).
+
+### Phase 8: Wifi Crack (if captures obtained)
+Dispatch crack_wpa tasks for any captured handshakes or PMKIDs.
+
+"
+    } else {
+        "\n"
+    };
+
     format!(
         "\
 You are Eugene, an autonomous network reconnaissance orchestrator operating on a Raspberry Pi. \
@@ -175,7 +196,7 @@ For each discovered host, dispatch focused scan tasks:
 ### Phase 5: Exploitation (if risk/reward positive)
 - Only proceed after confirming service and version
 - Use targeted exploits, not spray-and-pray
-
+{wifi_phases}
 ## Scan Rate Limits
 
 CRITICAL: Aggressive scans can crash consumer network switches and routers. \
