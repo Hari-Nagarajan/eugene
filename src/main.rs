@@ -12,7 +12,7 @@ async fn main() -> Result<(), anyhow::Error> {
     pretty_env_logger::init();
     log::info!("eugene starting, RUST_LOG={}", std::env::var("RUST_LOG").unwrap_or_default());
     let cli = Cli::parse();
-    let config = Arc::new(Config::from_env());
+    let config = Arc::new(Config::load());
 
     match cli.command {
         Commands::Run { target } => {

@@ -158,30 +158,62 @@ pub struct Config {
     /// Discovered ALFA wifi adapter interface name (e.g., "wlan1").
     /// Set by runtime discovery or EUGENE_WIFI_IFACE env var. None if no adapter found.
     pub wifi_interface: Option<String>,
+    /// LLM provider name (e.g., "minimax", "openrouter")
+    pub provider: Option<String>,
+    /// LLM model name (e.g., "MiniMax-M2.5")
+    pub model: Option<String>,
+    /// Custom LLM base URL
+    pub base_url: Option<String>,
 }
 
 impl Config {
-    /// Load configuration from environment variables.
+    /// Load configuration with layered resolution: TOML > env var > defaults.
     ///
-    /// Reads:
-    /// - `TELEGRAM_BOT_TOKEN` -> telegram_bot_token (optional)
-    /// - `MINIMAX_API_KEY` -> minimax_api_key (optional)
-    /// - `ALLOWED_CHAT_IDS` -> comma-separated i64 list
-    /// - `EUGENE_DB_PATH` -> db_path (default "eugene.db")
-    pub fn from_env() -> Self {
-        let telegram_bot_token = std::env::var("TELEGRAM_BOT_TOKEN").ok();
-        let minimax_api_key = std::env::var("MINIMAX_API_KEY").ok();
+    /// Reads ~/.eugene/config.toml first, then falls back to env vars for any
+    /// field not set in TOML, then to hardcoded defaults.
+    pub fn load() -> Self {
+        Self::load_with_toml(EugeneConfig::load_from_file())
+    }
 
-        let allowed_chat_ids = std::env::var("ALLOWED_CHAT_IDS")
-            .unwrap_or_default()
-            .split(',')
-            .filter(|s| !s.trim().is_empty())
-            .filter_map(|s| s.trim().parse::<i64>().ok())
-            .collect();
+    /// Load configuration from a specific EugeneConfig (useful for testing).
+    pub fn load_with_toml(toml: EugeneConfig) -> Self {
+        let default_db = eugene_home().join("eugene.db").to_string_lossy().to_string();
 
-        let db_path = std::env::var("EUGENE_DB_PATH").unwrap_or_else(|_| "eugene.db".to_string());
-        let nvd_api_key = std::env::var("NVD_API_KEY").ok();
-        let wifi_interface = std::env::var("EUGENE_WIFI_IFACE").ok();
+        // provider: toml > infer from env > None
+        let minimax_api_key_env = std::env::var("MINIMAX_API_KEY").ok();
+        let provider = toml.llm.provider.clone().or_else(|| {
+            if minimax_api_key_env.is_some() {
+                Some("minimax".to_string())
+            } else {
+                None
+            }
+        });
+
+        let minimax_api_key = toml.llm.api_key.clone().or(minimax_api_key_env);
+        let model = toml.llm.model.clone().or_else(|| std::env::var("MINIMAX_MODEL").ok());
+        let base_url = toml.llm.base_url.clone().or_else(|| std::env::var("MINIMAX_BASE_URL").ok());
+
+        let telegram_bot_token = toml.telegram.bot_token.clone()
+            .or_else(|| std::env::var("TELEGRAM_BOT_TOKEN").ok());
+
+        let allowed_chat_ids = toml.telegram.allowed_chat_ids.clone().unwrap_or_else(|| {
+            std::env::var("ALLOWED_CHAT_IDS")
+                .unwrap_or_default()
+                .split(',')
+                .filter(|s| !s.trim().is_empty())
+                .filter_map(|s| s.trim().parse::<i64>().ok())
+                .collect()
+        });
+
+        let db_path = toml.database.path.clone().unwrap_or_else(|| {
+            std::env::var("EUGENE_DB_PATH").unwrap_or(default_db)
+        });
+
+        let nvd_api_key = toml.vulnerability.nvd_api_key.clone()
+            .or_else(|| std::env::var("NVD_API_KEY").ok());
+
+        let wifi_interface = toml.wifi.interface.clone()
+            .or_else(|| std::env::var("EUGENE_WIFI_IFACE").ok());
 
         Self {
             tool_timeouts: default_tool_timeouts(),
@@ -193,7 +225,15 @@ impl Config {
             db_path,
             nvd_api_key,
             wifi_interface,
+            provider,
+            model,
+            base_url,
         }
+    }
+
+    /// Backwards-compatible alias for Config::load().
+    pub fn from_env() -> Self {
+        Self::load()
     }
 }
 
@@ -209,6 +249,9 @@ impl Default for Config {
             db_path: "eugene.db".to_string(),
             nvd_api_key: None,
             wifi_interface: None,
+            provider: None,
+            model: None,
+            base_url: None,
         }
     }
 }
@@ -323,6 +366,9 @@ mod tests {
         assert_eq!(config.db_path, "eugene.db");
         assert!(config.nvd_api_key.is_none());
         assert!(config.wifi_interface.is_none());
+        assert!(config.provider.is_none());
+        assert!(config.model.is_none());
+        assert!(config.base_url.is_none());
     }
 
     #[test]
@@ -366,5 +412,99 @@ mod tests {
             .filter_map(|s| s.trim().parse::<i64>().ok())
             .collect();
         assert!(ids.is_empty());
+    }
+
+    // ---- Config::load() layered resolution tests ----
+    // These tests manipulate env vars, so they must be serialized.
+    use std::sync::Mutex;
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn test_load_toml_overrides_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: serialized via ENV_LOCK mutex
+        unsafe { std::env::set_var("MINIMAX_API_KEY", "env-key-override-test") };
+        let toml = EugeneConfig {
+            llm: LlmConfig {
+                api_key: Some("toml-key".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let config = Config::load_with_toml(toml);
+        assert_eq!(config.minimax_api_key, Some("toml-key".to_string()));
+        unsafe { std::env::remove_var("MINIMAX_API_KEY") };
+    }
+
+    #[test]
+    fn test_load_env_fallback_when_no_toml() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("MINIMAX_API_KEY", "env-key-fallback-test") };
+        let config = Config::load_with_toml(EugeneConfig::default());
+        assert_eq!(config.minimax_api_key, Some("env-key-fallback-test".to_string()));
+        unsafe { std::env::remove_var("MINIMAX_API_KEY") };
+    }
+
+    #[test]
+    fn test_load_default_db_path() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("EUGENE_DB_PATH") };
+        let config = Config::load_with_toml(EugeneConfig::default());
+        let expected = eugene_home().join("eugene.db").to_string_lossy().to_string();
+        assert_eq!(config.db_path, expected);
+    }
+
+    #[test]
+    fn test_load_infers_minimax_provider() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("MINIMAX_API_KEY", "infer-provider-test") };
+        let config = Config::load_with_toml(EugeneConfig::default());
+        assert_eq!(config.provider, Some("minimax".to_string()));
+        unsafe { std::env::remove_var("MINIMAX_API_KEY") };
+    }
+
+    #[test]
+    fn test_config_default_unchanged() {
+        // Config::default() must remain unchanged for existing test compatibility
+        let config = Config::default();
+        assert_eq!(config.db_path, "eugene.db");
+        assert!(config.telegram_bot_token.is_none());
+        assert!(config.minimax_api_key.is_none());
+        assert!(config.allowed_chat_ids.is_empty());
+        assert!(config.nvd_api_key.is_none());
+        assert!(config.wifi_interface.is_none());
+        assert!(config.provider.is_none());
+        assert!(config.model.is_none());
+        assert!(config.base_url.is_none());
+        assert_eq!(config.max_concurrent_executors, 4);
+    }
+
+    #[test]
+    fn test_load_telegram_from_toml() {
+        let toml = EugeneConfig {
+            telegram: TelegramConfig {
+                bot_token: Some("toml-bot-token".to_string()),
+                allowed_chat_ids: Some(vec![111, 222]),
+            },
+            ..Default::default()
+        };
+        let config = Config::load_with_toml(toml);
+        assert_eq!(config.telegram_bot_token, Some("toml-bot-token".to_string()));
+        assert_eq!(config.allowed_chat_ids, vec![111, 222]);
+    }
+
+    #[test]
+    fn test_load_provider_from_toml() {
+        let toml = EugeneConfig {
+            llm: LlmConfig {
+                provider: Some("openrouter".to_string()),
+                api_key: Some("or-key".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let config = Config::load_with_toml(toml);
+        assert_eq!(config.provider, Some("openrouter".to_string()));
+        assert_eq!(config.minimax_api_key, Some("or-key".to_string()));
     }
 }
