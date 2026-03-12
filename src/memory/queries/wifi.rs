@@ -231,6 +231,61 @@ pub async fn get_wifi_clients(
     .map_err(MemoryError::from)
 }
 
+/// A matched probe result: a client whose probed SSID matches a visible AP in the same run.
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchedProbe {
+    pub client_mac: String,
+    pub probed_ssid: String,
+    pub matched_ap_bssid: String,
+    pub channel: Option<i32>,
+    pub encryption: Option<String>,
+    pub ap_signal: Option<i32>,
+    pub client_signal: Option<i32>,
+    pub associated_bssid: Option<String>,
+}
+
+/// Get clients whose probed SSIDs match visible APs in the same scan run.
+///
+/// Joins wifi_client_probes against wifi_access_points on probed_ssid = essid
+/// within the same run_id. These are high-value deauth target candidates:
+/// the client is looking for a network that's actually present.
+pub async fn get_matched_probes(
+    conn: &Connection,
+    run_id: i64,
+) -> Result<Vec<MatchedProbe>, MemoryError> {
+    conn.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT cp.client_mac, cp.probed_ssid, ap.bssid AS matched_ap_bssid,
+                    ap.channel, ap.encryption, ap.signal_dbm AS ap_signal,
+                    c.signal_dbm AS client_signal, c.associated_bssid
+             FROM wifi_client_probes cp
+             JOIN wifi_access_points ap ON cp.probed_ssid = ap.essid AND cp.run_id = ap.run_id
+             JOIN wifi_clients c ON cp.client_mac = c.mac AND cp.run_id = c.run_id
+             WHERE cp.run_id = ?1
+             ORDER BY ap.signal_dbm DESC",
+        )?;
+
+        let probes = stmt
+            .query_map(rusqlite::params![run_id], |row| {
+                Ok(MatchedProbe {
+                    client_mac: row.get(0)?,
+                    probed_ssid: row.get(1)?,
+                    matched_ap_bssid: row.get(2)?,
+                    channel: row.get(3)?,
+                    encryption: row.get(4)?,
+                    ap_signal: row.get(5)?,
+                    client_signal: row.get(6)?,
+                    associated_bssid: row.get(7)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(probes)
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -628,5 +683,96 @@ mod tests {
         // migrate_wifi_schema should be a no-op and not error.
         migrate_wifi_schema(&conn).await.unwrap();
         migrate_wifi_schema(&conn).await.unwrap();
+    }
+
+    // -- Matched probes tests --
+
+    #[tokio::test]
+    async fn test_get_matched_probes_empty_when_no_matches() {
+        let (conn, run_id) = setup().await;
+
+        // Insert an AP
+        insert_wifi_ap(
+            &conn, Some(run_id), "AA:BB:CC:DD:EE:FF".to_string(),
+            Some("HomeNetwork".to_string()), Some(6), None,
+            Some("WPA2".to_string()), None, None, Some(-42), None,
+        ).await.unwrap();
+
+        // Insert a client with a probe that does NOT match any AP
+        insert_wifi_client(
+            &conn, Some(run_id), "11:22:33:44:55:66".to_string(),
+            None, Some(-50), None,
+        ).await.unwrap();
+        insert_client_probe(
+            &conn, Some(run_id), "11:22:33:44:55:66".to_string(),
+            "NonExistentNetwork".to_string(),
+        ).await.unwrap();
+
+        let matched = get_matched_probes(&conn, run_id).await.unwrap();
+        assert!(matched.is_empty(), "No probes should match when SSID differs");
+    }
+
+    #[tokio::test]
+    async fn test_get_matched_probes_returns_match_when_probe_equals_essid() {
+        let (conn, run_id) = setup().await;
+
+        // Insert an AP with essid "TargetNet"
+        insert_wifi_ap(
+            &conn, Some(run_id), "AA:BB:CC:DD:EE:FF".to_string(),
+            Some("TargetNet".to_string()), Some(11), None,
+            Some("WPA2".to_string()), None, None, Some(-35), None,
+        ).await.unwrap();
+
+        // Insert a client that probes "TargetNet"
+        insert_wifi_client(
+            &conn, Some(run_id), "11:22:33:44:55:66".to_string(),
+            Some("AA:BB:CC:DD:EE:FF".to_string()), Some(-45), None,
+        ).await.unwrap();
+        insert_client_probe(
+            &conn, Some(run_id), "11:22:33:44:55:66".to_string(),
+            "TargetNet".to_string(),
+        ).await.unwrap();
+
+        let matched = get_matched_probes(&conn, run_id).await.unwrap();
+        assert_eq!(matched.len(), 1);
+        assert_eq!(matched[0].client_mac, "11:22:33:44:55:66");
+        assert_eq!(matched[0].probed_ssid, "TargetNet");
+        assert_eq!(matched[0].matched_ap_bssid, "AA:BB:CC:DD:EE:FF");
+        assert_eq!(matched[0].channel, Some(11));
+        assert_eq!(matched[0].encryption.as_deref(), Some("WPA2"));
+        assert_eq!(matched[0].ap_signal, Some(-35));
+        assert_eq!(matched[0].client_signal, Some(-45));
+        assert_eq!(matched[0].associated_bssid.as_deref(), Some("AA:BB:CC:DD:EE:FF"));
+    }
+
+    #[tokio::test]
+    async fn test_get_matched_probes_no_cross_run_matching() {
+        let (conn, run_id1) = setup().await;
+        let run_id2 = create_run(&conn, "test2".to_string(), None).await.unwrap();
+
+        // Run 1: AP with essid "SharedNet"
+        insert_wifi_ap(
+            &conn, Some(run_id1), "AA:BB:CC:DD:EE:FF".to_string(),
+            Some("SharedNet".to_string()), Some(6), None,
+            None, None, None, Some(-40), None,
+        ).await.unwrap();
+
+        // Run 2: client probing "SharedNet" -- should NOT match run 1's AP
+        insert_wifi_client(
+            &conn, Some(run_id2), "11:22:33:44:55:66".to_string(),
+            None, Some(-50), None,
+        ).await.unwrap();
+        insert_client_probe(
+            &conn, Some(run_id2), "11:22:33:44:55:66".to_string(),
+            "SharedNet".to_string(),
+        ).await.unwrap();
+
+        // Run 1 should have no matches (no clients in run 1)
+        let matched1 = get_matched_probes(&conn, run_id1).await.unwrap();
+        assert!(matched1.is_empty(), "Run 1 has AP but no matching client probes");
+
+        // Run 2 should have no matches (no APs in run 2)
+        let matched2 = get_matched_probes(&conn, run_id2).await.unwrap();
+        assert!(matched2.is_empty(), "Run 2 has probe but no matching AP");
     }
 }

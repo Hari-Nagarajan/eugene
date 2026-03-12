@@ -6,7 +6,7 @@ pub use queries::{Memory, Finding, RunSummary, create_run, log_finding, log_task
 pub use queries::{ScoreSummary, ScoreEvent, Script, points_for_action, log_score_event, get_score_summary, weighted_vuln_points, log_weighted_vuln_event, save_script, search_scripts, get_script_by_name, update_script_usage};
 pub use queries::{ScheduledTask, load_session, save_session, clear_session, create_schedule, list_schedules, delete_schedule, pause_schedule, resume_schedule, get_due_schedules, advance_schedule};
 pub use queries::{get_cached_cves, store_cached_cves, delete_stale_cves};
-pub use queries::{insert_wifi_ap, get_wifi_aps, insert_wifi_client, insert_client_probe, get_wifi_clients, migrate_wifi_schema, WifiClient};
+pub use queries::{insert_wifi_ap, get_wifi_aps, insert_wifi_client, insert_client_probe, get_wifi_clients, get_matched_probes, migrate_wifi_schema, WifiClient, MatchedProbe};
 
 mod decay;
 pub use decay::{spawn_decay_task, run_decay_sweep};

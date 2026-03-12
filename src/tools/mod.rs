@@ -83,6 +83,9 @@ pub use log_wifi_discovery::{LogWifiDiscoveryTool, LogWifiDiscoveryArgs, LogWifi
 mod run_airodump;
 pub use run_airodump::{RunAirodumpTool, RunAirodumpArgs, RunAirodumpResult};
 
+mod get_wifi_intel;
+pub use get_wifi_intel::{GetWifiIntelTool, GetWifiIntelArgs, GetWifiIntelResult};
+
 mod check_exploit;
 pub use check_exploit::{CheckExploitTool, CheckExploitArgs, CheckExploitResult};
 
@@ -113,7 +116,7 @@ pub fn make_all_tools(
 }
 
 /// Create executor tools for dispatched executor agents.
-/// Returns 8 tools: recon tools (run_command, log_discovery, log_wifi_discovery, run_airodump)
+/// Returns 9 tools: recon tools (run_command, log_discovery, log_wifi_discovery, run_airodump, get_wifi_intel)
 /// + script tools (save_script, search_scripts, run_script) + vuln tools (check_exploit).
 ///
 /// Executors get recon, script, and vuln tools (no dispatch tools, no memory recall,
@@ -130,7 +133,8 @@ pub fn make_executor_tools(
         Box::new(SearchScriptsTool::new(memory.clone())) as Box<dyn ToolDyn>,
         Box::new(RunScriptTool::new(memory.clone(), config.clone())) as Box<dyn ToolDyn>,
         Box::new(LogWifiDiscoveryTool::new(memory.clone())) as Box<dyn ToolDyn>,
-        Box::new(RunAirodumpTool::new(config, memory)) as Box<dyn ToolDyn>,
+        Box::new(RunAirodumpTool::new(config, memory.clone())) as Box<dyn ToolDyn>,
+        Box::new(GetWifiIntelTool::new(memory)) as Box<dyn ToolDyn>,
         Box::new(CheckExploitTool::new()) as Box<dyn ToolDyn>,
     ]
 }
