@@ -26,8 +26,10 @@ use tokio_rusqlite::Connection;
 
 use crate::agent::client::create_minimax_client;
 use crate::agent::run_campaign;
+use crate::agent::run_wifi_campaign;
 use crate::config::Config;
 use crate::memory::get_run_summary;
+use crate::wifi::report::WifiReport;
 
 /// Events sent from the agent task to the TUI for live updates.
 #[derive(Debug, Clone)]
@@ -253,6 +255,137 @@ pub async fn run_tui(
     // Print final result if available
     if let Some(result) = &app.final_result {
         println!("\nCampaign Result:\n{result}");
+    }
+
+    Ok(())
+}
+
+/// Launch the TUI dashboard for a wifi campaign.
+///
+/// Same structure as `run_tui()` but spawns `run_wifi_campaign()` instead
+/// of `run_campaign()`. After the user presses 'q', generates and prints
+/// the wifi audit report from the run_id returned by the campaign.
+pub async fn run_tui_wifi(
+    target: Option<String>,
+    config: Arc<Config>,
+    db: Arc<Connection>,
+) -> Result<(), anyhow::Error> {
+    // Initialize terminal
+    let mut terminal = ratatui::try_init()
+        .map_err(|e| anyhow::anyhow!("Failed to initialize terminal: {e}"))?;
+
+    // Create mpsc channel for agent events
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<AgentEvent>(100);
+
+    // Oneshot channel to receive run_id from the spawned wifi campaign
+    let (run_id_tx, mut run_id_rx) = tokio::sync::oneshot::channel::<i64>();
+
+    // Initialize app state
+    let display_target = target.clone().unwrap_or_else(|| "auto-discover".to_string());
+    let mut app = App::new(display_target);
+
+    // Create MiniMax client and spawn wifi campaign
+    let agent_config = config.clone();
+    let agent_db = db.clone();
+    let _agent_handle = tokio::spawn(async move {
+        let client_result = create_minimax_client();
+        let (client, model_name) = match client_result {
+            Ok(pair) => pair,
+            Err(e) => {
+                let _ = tx.send(AgentEvent::AgentError(e.to_string())).await;
+                return;
+            }
+        };
+        let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
+
+        let _ = tx
+            .send(AgentEvent::PhaseStarted("Wifi Campaign".to_string()))
+            .await;
+
+        match run_wifi_campaign(model, agent_config, agent_db, target.as_deref()).await {
+            Ok((summary, run_id)) => {
+                let _ = run_id_tx.send(run_id);
+                let _ = tx.send(AgentEvent::AgentComplete(summary)).await;
+            }
+            Err(e) => {
+                let _ = tx.send(AgentEvent::AgentError(e.to_string())).await;
+            }
+        }
+    });
+
+    // DB polling for progress
+    let poll_db = db.clone();
+    let mut last_poll = tokio::time::Instant::now();
+    let poll_interval = Duration::from_secs(2);
+    let mut tracked_run_id: Option<i64> = None;
+
+    // Main event loop
+    loop {
+        terminal.draw(|frame| widgets::draw_dashboard(frame, &app))?;
+
+        if event::poll(Duration::from_millis(100))?
+            && let Event::Key(key) = event::read()?
+            && key.kind == KeyEventKind::Press
+            && key.code == KeyCode::Char('q')
+        {
+            app.should_quit = true;
+        }
+
+        while let Ok(agent_event) = rx.try_recv() {
+            app.handle_event(agent_event);
+        }
+
+        if last_poll.elapsed() >= poll_interval {
+            last_poll = tokio::time::Instant::now();
+
+            if tracked_run_id.is_none() {
+                let db_ref = poll_db.clone();
+                if let Ok(rid) = db_ref
+                    .call(|conn| {
+                        let id: i64 = conn.query_row(
+                            "SELECT MAX(id) FROM runs WHERE status = 'running'",
+                            [],
+                            |row| row.get(0),
+                        )?;
+                        Ok(id)
+                    })
+                    .await
+                {
+                    tracked_run_id = Some(rid);
+                }
+            }
+
+            if let Some(run_id) = tracked_run_id
+                && let Ok(summary) = get_run_summary(&poll_db, run_id).await
+            {
+                app.tasks_completed = summary.completed_task_count as usize;
+                app.tasks_total = summary.task_count as usize;
+                app.score = summary.total_score;
+                if app.tasks_total > 0 {
+                    app.progress =
+                        app.tasks_completed as f64 / app.tasks_total as f64;
+                }
+            }
+        }
+
+        if app.should_quit {
+            break;
+        }
+    }
+
+    // Restore terminal
+    ratatui::restore();
+
+    // Print final result if available
+    if let Some(result) = &app.final_result {
+        println!("\nCampaign Result:\n{result}");
+    }
+
+    // Print wifi audit report if we received a run_id
+    if let Ok(run_id) = run_id_rx.try_recv() {
+        if let Ok(report) = WifiReport::from_run(&db, run_id).await {
+            println!("{}", report.format_cli());
+        }
     }
 
     Ok(())

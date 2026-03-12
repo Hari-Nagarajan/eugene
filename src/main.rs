@@ -74,17 +74,22 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
             }
         }
-        Commands::Wifi { target, no_tui: _ } => {
+        Commands::Wifi { target, no_tui } => {
             let db = open_memory_store(&config.db_path).await?;
             init_schema(&db).await?;
-            let (client, model_name) = eugene::agent::client::create_minimax_client()?;
-            let model = rig::prelude::CompletionClient::completion_model(&client, &model_name);
-            let (result, run_id) =
-                eugene::agent::run_wifi_campaign(model, config, db.clone(), target.as_deref())
-                    .await?;
-            println!("{result}");
-            let report = eugene::wifi::report::WifiReport::from_run(&db, run_id).await?;
-            println!("{}", report.format_cli());
+            if no_tui {
+                let (client, model_name) = eugene::agent::client::create_minimax_client()?;
+                let model =
+                    rig::prelude::CompletionClient::completion_model(&client, &model_name);
+                let (result, run_id) =
+                    eugene::agent::run_wifi_campaign(model, config, db.clone(), target.as_deref())
+                        .await?;
+                println!("{result}");
+                let report = eugene::wifi::report::WifiReport::from_run(&db, run_id).await?;
+                println!("{}", report.format_cli());
+            } else {
+                eugene::tui::run_tui_wifi(target, config, db).await?;
+            }
         }
         Commands::Service => {
             eugene::service::generate_service()?;
