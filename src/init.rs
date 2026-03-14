@@ -52,6 +52,7 @@ pub async fn run_wizard() -> Result<(), anyhow::Error> {
         api_key: Some(api_key),
         model: Some(model),
         base_url: None,
+        llm_log_level: None,
     };
     existing.save_to_file()?;
 

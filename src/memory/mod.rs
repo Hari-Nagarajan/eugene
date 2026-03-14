@@ -238,6 +238,60 @@ mod tests {
         // Should return results or empty, but not crash
     }
 
+    #[tokio::test]
+    async fn test_llm_interactions_table_exists() {
+        let conn = setup().await;
+        conn.call(|conn| {
+            // Insert a minimal row to verify table exists with expected columns
+            conn.execute(
+                "INSERT INTO llm_interactions (request_id, status, created_at) VALUES (?1, ?2, ?3)",
+                rusqlite::params!["test-req-id", "success", "2026-01-01T00:00:00Z"],
+            )?;
+            // Verify we can read it back
+            let count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM llm_interactions",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count, 1);
+
+            // Verify all expected columns exist by inserting a full row
+            conn.execute(
+                "INSERT INTO llm_interactions (run_id, request_id, provider, model, caller_context, prompt_text, response_text, input_tokens, output_tokens, total_tokens, latency_ms, status, error_message, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                rusqlite::params![
+                    1i64, "full-req-id", "openai", "gpt-4", "test_context",
+                    "prompt", "response", 10, 20, 30, 150, "success", rusqlite::types::Null, "2026-01-01T00:00:00Z"
+                ],
+            )?;
+            let count2: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM llm_interactions",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count2, 2);
+
+            // Verify CHECK constraint on status rejects invalid values
+            let bad = conn.execute(
+                "INSERT INTO llm_interactions (request_id, status, created_at) VALUES (?1, ?2, ?3)",
+                rusqlite::params!["bad-req", "invalid_status", "2026-01-01T00:00:00Z"],
+            );
+            assert!(bad.is_err(), "CHECK constraint should reject invalid status");
+
+            // Verify indexes exist
+            let idx_count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name LIKE 'idx_llm_interactions_%'",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(idx_count, 3, "Should have 3 indexes on llm_interactions");
+
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
     #[test]
     fn test_safety_validation() {
         use crate::safety::{validate_command, sanitize_target};

@@ -4,6 +4,51 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
+// LlmLogLevel -- controls LLM request/response logging verbosity
+// ---------------------------------------------------------------------------
+
+/// Controls how much LLM interaction detail is logged.
+///
+/// Cascade resolution order: CLI flag > config.toml > EUGENE_LLM_LOG env var > Off (default).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, clap::ValueEnum)]
+#[serde(rename_all = "lowercase")]
+pub enum LlmLogLevel {
+    /// No LLM logging (default)
+    #[default]
+    Off,
+    /// Log prompt/response summaries (token counts, latency)
+    Summary,
+    /// Log full prompts and responses
+    Full,
+}
+
+impl std::fmt::Display for LlmLogLevel {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LlmLogLevel::Off => write!(f, "off"),
+            LlmLogLevel::Summary => write!(f, "summary"),
+            LlmLogLevel::Full => write!(f, "full"),
+        }
+    }
+}
+
+impl std::str::FromStr for LlmLogLevel {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "off" => Ok(LlmLogLevel::Off),
+            "summary" => Ok(LlmLogLevel::Summary),
+            "full" => Ok(LlmLogLevel::Full),
+            other => Err(format!(
+                "invalid LlmLogLevel '{}': expected one of: off, summary, full",
+                other
+            )),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // EugeneConfig -- TOML-backed configuration file (~/.eugene/config.toml)
 // ---------------------------------------------------------------------------
 
@@ -29,6 +74,7 @@ pub struct LlmConfig {
     pub api_key: Option<String>,
     pub model: Option<String>,
     pub base_url: Option<String>,
+    pub llm_log_level: Option<LlmLogLevel>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -164,6 +210,8 @@ pub struct Config {
     pub model: Option<String>,
     /// Custom LLM base URL
     pub base_url: Option<String>,
+    /// LLM logging verbosity (resolved: CLI > TOML > env > Off)
+    pub llm_log_level: LlmLogLevel,
 }
 
 impl Config {
@@ -215,6 +263,13 @@ impl Config {
         let wifi_interface = toml.wifi.interface.clone()
             .or_else(|| std::env::var("EUGENE_WIFI_IFACE").ok());
 
+        let llm_log_level = toml.llm.llm_log_level.unwrap_or_else(|| {
+            std::env::var("EUGENE_LLM_LOG")
+                .ok()
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(LlmLogLevel::Off)
+        });
+
         Self {
             tool_timeouts: default_tool_timeouts(),
             working_directory: PathBuf::from("/tmp"),
@@ -228,6 +283,7 @@ impl Config {
             provider,
             model,
             base_url,
+            llm_log_level,
         }
     }
 
@@ -252,6 +308,7 @@ impl Default for Config {
             provider: None,
             model: None,
             base_url: None,
+            llm_log_level: LlmLogLevel::Off,
         }
     }
 }
@@ -287,6 +344,7 @@ mod tests {
                 api_key: Some("sk-test-123".to_string()),
                 model: Some("MiniMax-M2.5".to_string()),
                 base_url: Some("https://example.com".to_string()),
+                llm_log_level: None,
             },
             telegram: TelegramConfig {
                 bot_token: Some("bot-token".to_string()),
