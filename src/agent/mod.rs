@@ -52,6 +52,7 @@ use tokio_rusqlite::Connection;
 use rig::agent::{Agent, AgentBuilder};
 use rig::completion::{CompletionModel, Prompt, PromptError};
 
+use crate::agent::llm_logger::log_llm_error_with_persist;
 use crate::config::Config;
 use crate::memory::{create_run, update_run};
 use crate::tools::{make_all_tools, make_executor_tools, make_orchestrator_tools};
@@ -231,6 +232,7 @@ where
     let semaphore = Arc::new(Semaphore::new(config.max_concurrent_executors));
 
     // Build orchestrator agent
+    let config_for_error = config.clone();
     let orchestrator = create_orchestrator_agent(
         model,
         config,
@@ -261,6 +263,7 @@ where
             Ok(result)
         }
         Err(e) => {
+            log_llm_error_with_persist(config_for_error, memory.clone(), &e);
             let _ = update_run(&memory, run_id, "failed").await;
             Err(e)
         }
@@ -295,6 +298,7 @@ where
     let semaphore = Arc::new(Semaphore::new(1));
 
     // Build wifi-specific orchestrator agent
+    let config_for_error = config.clone();
     let orchestrator = create_wifi_orchestrator_agent(
         model,
         config,
@@ -322,6 +326,7 @@ where
             Ok((result, run_id))
         }
         Err(e) => {
+            log_llm_error_with_persist(config_for_error, memory.clone(), &e);
             let _ = update_run(&memory, run_id, "failed").await;
             Err(e)
         }
