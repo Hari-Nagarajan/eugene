@@ -23,7 +23,7 @@ thiserror = "2.0.12"
 anyhow = "1.0.98"
 
 # AI agent framework
-rig-core = { path = "/Users/hari/Projects/rig/rig/rig-core" }
+rig-core = "0.32.0"
 
 # Phase 6: C2 & Scheduling
 teloxide = { version = "0.17", features = ["macros"] }
