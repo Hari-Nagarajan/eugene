@@ -263,7 +263,7 @@ where
             Ok(result)
         }
         Err(e) => {
-            log_llm_error_with_persist(config_for_error, memory.clone(), &e);
+            log_llm_error_with_persist(config_for_error, memory.clone(), Some(run_id), "orchestrator", &e);
             let _ = update_run(&memory, run_id, "failed").await;
             Err(e)
         }
@@ -326,7 +326,7 @@ where
             Ok((result, run_id))
         }
         Err(e) => {
-            log_llm_error_with_persist(config_for_error, memory.clone(), &e);
+            log_llm_error_with_persist(config_for_error, memory.clone(), Some(run_id), "orchestrator", &e);
             let _ = update_run(&memory, run_id, "failed").await;
             Err(e)
         }

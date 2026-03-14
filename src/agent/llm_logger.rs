@@ -28,6 +28,8 @@ use crate::config::{Config, LlmLogLevel};
 pub struct LlmLogger {
     config: Arc<Config>,
     db: Arc<Connection>,
+    run_id: Option<i64>,
+    caller_context: String,
     call_start: Arc<Mutex<Option<Instant>>>,
     prompt_text: Arc<Mutex<Option<String>>>,
 }
@@ -37,10 +39,14 @@ impl LlmLogger {
     ///
     /// The logger reads `config.llm_log_level` to determine verbosity and
     /// `config.provider`/`config.model` for structured log fields.
-    pub fn new(config: Arc<Config>, db: Arc<Connection>) -> Self {
+    /// `run_id` ties interactions to a specific campaign run.
+    /// `caller_context` identifies the agent (e.g. "orchestrator", "executor:nmap_scan").
+    pub fn new(config: Arc<Config>, db: Arc<Connection>, run_id: Option<i64>, caller_context: impl Into<String>) -> Self {
         Self {
             config,
             db,
+            run_id,
+            caller_context: caller_context.into(),
             call_start: Arc::new(Mutex::new(None)),
             prompt_text: Arc::new(Mutex::new(None)),
         }
@@ -136,14 +142,14 @@ impl<M: CompletionModel> PromptHook<M> for LlmLogger {
             LlmLogLevel::Off => {}
             LlmLogLevel::Summary => {
                 log::info!(
-                    "[llm] provider={} model={} input_tokens={} output_tokens={} total_tokens={} latency_ms={} status=success",
-                    provider, model, usage.input_tokens, usage.output_tokens, usage.total_tokens, latency_ms
+                    "[llm] agent={} provider={} model={} input_tokens={} output_tokens={} total_tokens={} latency_ms={} status=success",
+                    self.caller_context, provider, model, usage.input_tokens, usage.output_tokens, usage.total_tokens, latency_ms
                 );
             }
             LlmLogLevel::Full => {
                 log::info!(
-                    "[llm] provider={} model={} input_tokens={} output_tokens={} total_tokens={} latency_ms={} status=success prompt=\"{}\" response=\"{}\"",
-                    provider, model, usage.input_tokens, usage.output_tokens, usage.total_tokens, latency_ms,
+                    "[llm] agent={} provider={} model={} input_tokens={} output_tokens={} total_tokens={} latency_ms={} status=success prompt=\"{}\" response=\"{}\"",
+                    self.caller_context, provider, model, usage.input_tokens, usage.output_tokens, usage.total_tokens, latency_ms,
                     prompt_text.as_deref().unwrap_or(""),
                     &response_text
                 );
@@ -153,6 +159,8 @@ impl<M: CompletionModel> PromptHook<M> for LlmLogger {
         // Fire-and-forget DB write (skip for Off level)
         if level != LlmLogLevel::Off {
             let db = self.db.clone();
+            let run_id = self.run_id;
+            let caller_context = self.caller_context.clone();
             let request_id = uuid::Uuid::new_v4().to_string();
             let created_at = chrono::Utc::now().to_rfc3339();
             let store_prompt = if level == LlmLogLevel::Full {
@@ -172,11 +180,11 @@ impl<M: CompletionModel> PromptHook<M> for LlmLogger {
             tokio::spawn(async move {
                 if let Err(e) = crate::memory::insert_llm_interaction(
                     &db,
-                    None,
+                    run_id,
                     &request_id,
                     &provider,
                     &model,
-                    None,
+                    Some(&caller_context),
                     store_prompt.as_deref(),
                     store_response.as_deref(),
                     Some(input_tokens),
@@ -202,14 +210,15 @@ impl<M: CompletionModel> PromptHook<M> for LlmLogger {
 ///
 /// Call from error handling paths where the PromptHook won't fire
 /// (e.g., network errors, API errors returned before completion).
-pub fn log_llm_error(config: &Config, error: &dyn std::fmt::Display) {
+pub fn log_llm_error(config: &Config, caller_context: &str, error: &dyn std::fmt::Display) {
     if config.llm_log_level == LlmLogLevel::Off {
         return;
     }
     let provider = config.provider.as_deref().unwrap_or("");
     let model = config.model.as_deref().unwrap_or("");
     log::error!(
-        "[llm] provider={} model={} status=error error=\"{}\"",
+        "[llm] agent={} provider={} model={} status=error error=\"{}\"",
+        caller_context,
         provider,
         model,
         error
@@ -219,28 +228,33 @@ pub fn log_llm_error(config: &Config, error: &dyn std::fmt::Display) {
 /// Log an LLM error and persist it to the DB via fire-and-forget spawn.
 ///
 /// Combines `log_llm_error` with async DB persistence of the error record.
+/// `run_id` ties the error to a specific campaign run.
+/// `caller_context` identifies the agent (e.g. "orchestrator", "executor:scan").
 pub fn log_llm_error_with_persist(
     config: Arc<Config>,
     db: Arc<Connection>,
+    run_id: Option<i64>,
+    caller_context: &str,
     error: &dyn std::fmt::Display,
 ) {
     let error_str = error.to_string();
-    log_llm_error(&config, &error_str);
+    log_llm_error(&config, caller_context, &error_str);
 
     if config.llm_log_level != LlmLogLevel::Off {
         let request_id = uuid::Uuid::new_v4().to_string();
         let created_at = chrono::Utc::now().to_rfc3339();
         let provider = config.provider.clone().unwrap_or_default();
         let model = config.model.clone().unwrap_or_default();
+        let caller_ctx = caller_context.to_string();
 
         tokio::spawn(async move {
             let _ = crate::memory::insert_llm_interaction(
                 &db,
-                None,
+                run_id,
                 &request_id,
                 &provider,
                 &model,
-                None,
+                Some(&caller_ctx),
                 None,
                 None,
                 None,
@@ -324,7 +338,7 @@ mod tests {
         let conn = open_memory_store(":memory:").await.unwrap();
         init_schema(&conn).await.unwrap();
         let config = test_config(LlmLogLevel::Summary);
-        let logger = LlmLogger::new(config, conn.clone());
+        let logger = LlmLogger::new(config, conn.clone(), None, "test");
 
         let prompt = user_message("test prompt");
         let response = make_response("test response", 10, 20, 30);
@@ -364,7 +378,7 @@ mod tests {
         let conn = open_memory_store(":memory:").await.unwrap();
         init_schema(&conn).await.unwrap();
         let config = test_config(LlmLogLevel::Full);
-        let logger = LlmLogger::new(config, conn.clone());
+        let logger = LlmLogger::new(config, conn.clone(), None, "test");
 
         let prompt = user_message("my prompt");
         let response = make_response("my response", 5, 15, 20);
@@ -395,7 +409,7 @@ mod tests {
         let conn = open_memory_store(":memory:").await.unwrap();
         init_schema(&conn).await.unwrap();
         let config = test_config(LlmLogLevel::Off);
-        let logger = LlmLogger::new(config, conn.clone());
+        let logger = LlmLogger::new(config, conn.clone(), None, "test");
 
         let prompt = user_message("test");
         let response = make_response("test", 1, 2, 3);
@@ -425,7 +439,7 @@ mod tests {
         let conn = open_memory_store(":memory:").await.unwrap();
         init_schema(&conn).await.unwrap();
         let config = test_config(LlmLogLevel::Summary);
-        let logger = LlmLogger::new(config, conn.clone());
+        let logger = LlmLogger::new(config, conn.clone(), None, "test");
 
         let prompt = user_message("test");
         let response = make_response("response", 100, 200, 300);
@@ -469,7 +483,7 @@ mod tests {
         let conn = open_memory_store(":memory:").await.unwrap();
         init_schema(&conn).await.unwrap();
         let config = test_config(LlmLogLevel::Full);
-        let logger = LlmLogger::new(config, conn.clone());
+        let logger = LlmLogger::new(config, conn.clone(), None, "test");
 
         let prompt = user_message("async test prompt");
         let response = make_response("async test response", 42, 84, 126);
@@ -493,5 +507,86 @@ mod tests {
             .unwrap();
 
         assert_eq!(count, 1, "Async DB write should create exactly one row");
+    }
+
+    #[tokio::test]
+    async fn test_caller_context_stored_in_db() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = crate::memory::create_run(&conn, "test".to_string(), None)
+            .await
+            .unwrap();
+        let config = test_config(LlmLogLevel::Summary);
+        let logger = LlmLogger::new(config, conn.clone(), Some(run_id), "orchestrator");
+
+        let prompt = user_message("context test prompt");
+        let response = make_response("context test response", 10, 20, 30);
+
+        PromptHook::<MockCompletionModel>::on_completion_call(&logger, &prompt, &[]).await;
+        PromptHook::<MockCompletionModel>::on_completion_response(&logger, &prompt, &response)
+            .await;
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let (db_caller_context, db_run_id): (Option<String>, Option<i64>) = conn
+            .call(|conn| {
+                Ok(conn.query_row(
+                    "SELECT caller_context, run_id FROM llm_interactions LIMIT 1",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )?)
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(
+            db_caller_context,
+            Some("orchestrator".to_string()),
+            "caller_context should be stored in DB"
+        );
+        assert_eq!(
+            db_run_id,
+            Some(run_id),
+            "run_id should be stored in DB"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_error_persist_with_run_id() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = crate::memory::create_run(&conn, "test".to_string(), None)
+            .await
+            .unwrap();
+        let config = test_config(LlmLogLevel::Summary);
+
+        log_llm_error_with_persist(
+            config,
+            conn.clone(),
+            Some(run_id),
+            "executor:scan",
+            &"test error message",
+        );
+
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        let (db_run_id, db_caller_context, db_status): (Option<i64>, Option<String>, String) = conn
+            .call(|conn| {
+                Ok(conn.query_row(
+                    "SELECT run_id, caller_context, status FROM llm_interactions LIMIT 1",
+                    [],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                )?)
+            })
+            .await
+            .unwrap();
+
+        assert_eq!(db_run_id, Some(run_id), "run_id should be stored for error persist");
+        assert_eq!(
+            db_caller_context,
+            Some("executor:scan".to_string()),
+            "caller_context should be stored for error persist"
+        );
+        assert_eq!(db_status, "error");
     }
 }
