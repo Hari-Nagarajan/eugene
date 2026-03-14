@@ -14,6 +14,7 @@ use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio_rusqlite::Connection;
 
+use crate::agent::llm_logger::LlmLogger;
 use crate::agent::prompt;
 use crate::agent::tools_available::AvailableTools;
 use crate::config::Config;
@@ -134,6 +135,7 @@ where
         let config = self.config.clone();
         let memory = self.memory.clone();
         let available_tools = self.available_tools.clone();
+        let run_id = self.run_id;
         let task_description = args.task_description;
         let task_name = args.task_name;
 
@@ -141,11 +143,18 @@ where
         let handle = tokio::spawn(async move {
             let _permit = permit; // held until task completes, then dropped
 
-            // Create ephemeral executor agent with recon tools
+            // Create ephemeral executor agent with recon tools and LlmLogger hook
+            let logger = LlmLogger::new(
+                config.clone(),
+                memory.clone(),
+                Some(run_id),
+                format!("executor:{}", task_name),
+            );
             let executor_tools = make_executor_tools(config, memory.clone());
             let preamble = prompt::executor_prompt(&available_tools);
             let executor = AgentBuilder::new((*model).clone())
                 .preamble(&preamble)
+                .hook(logger)
                 .tools(executor_tools)
                 .temperature(0.3)
                 .max_tokens(4096)
@@ -279,17 +288,25 @@ where
             let config = self.config.clone();
             let memory = self.memory.clone();
             let available_tools = self.available_tools.clone();
+            let run_id = self.run_id;
             let task_description = task.description.clone();
             let task_name = task.name.clone();
 
             let handle = tokio::spawn(async move {
                 let _permit = permit; // held until task completes, then dropped
 
-                // Create ephemeral executor agent with recon tools
+                // Create ephemeral executor agent with recon tools and LlmLogger hook
+                let logger = LlmLogger::new(
+                    config.clone(),
+                    memory.clone(),
+                    Some(run_id),
+                    format!("executor:{}", task_name),
+                );
                 let executor_tools = make_executor_tools(config, memory.clone());
                 let preamble = prompt::executor_prompt(&available_tools);
                 let executor = AgentBuilder::new((*model).clone())
                     .preamble(&preamble)
+                    .hook(logger)
                     .tools(executor_tools)
                     .temperature(0.3)
                     .max_tokens(4096)

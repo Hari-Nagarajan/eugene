@@ -52,9 +52,9 @@ use tokio_rusqlite::Connection;
 use rig::agent::{Agent, AgentBuilder};
 use rig::completion::{CompletionModel, Prompt, PromptError};
 
-use crate::agent::llm_logger::log_llm_error_with_persist;
+use crate::agent::llm_logger::{log_llm_error_with_persist, LlmLogger};
 use crate::config::Config;
-use crate::memory::{create_run, update_run};
+use crate::memory::{create_run, get_run_token_summary, update_run};
 use crate::tools::{make_all_tools, make_executor_tools, make_orchestrator_tools};
 use tools_available::AvailableTools;
 
@@ -74,12 +74,14 @@ pub fn create_agent<M: CompletionModel>(
     config: Arc<Config>,
     memory: Arc<Connection>,
     available_tools: &AvailableTools,
-) -> Agent<M> {
+) -> Agent<M, LlmLogger> {
+    let logger = LlmLogger::new(config.clone(), memory.clone(), None, "standalone");
     let tools = make_all_tools(config, memory);
     let preamble = prompt::system_prompt(available_tools);
 
     AgentBuilder::new(model)
         .preamble(&preamble)
+        .hook(logger)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -115,11 +117,12 @@ pub fn create_orchestrator_agent<M: CompletionModel + Clone + Send + Sync + 'sta
     semaphore: Arc<Semaphore>,
     run_id: i64,
     available_tools: &AvailableTools,
-) -> Agent<M>
+) -> Agent<M, LlmLogger>
 where
     M::Response: Send,
     M::StreamingResponse: Send,
 {
+    let logger = LlmLogger::new(config.clone(), memory.clone(), Some(run_id), "orchestrator");
     let model_arc = Arc::new(model);
     let available_tools_arc = Arc::new(available_tools.clone());
     let tools = make_orchestrator_tools(
@@ -134,6 +137,7 @@ where
 
     AgentBuilder::new((*model_arc).clone())
         .preamble(&preamble)
+        .hook(logger)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -151,12 +155,16 @@ pub fn create_executor_agent<M: CompletionModel>(
     config: Arc<Config>,
     memory: Arc<Connection>,
     available_tools: &AvailableTools,
-) -> Agent<M> {
+    run_id: Option<i64>,
+    caller_context: String,
+) -> Agent<M, LlmLogger> {
+    let logger = LlmLogger::new(config.clone(), memory.clone(), run_id, caller_context);
     let tools = make_executor_tools(config, memory);
     let preamble = prompt::executor_prompt(available_tools);
 
     AgentBuilder::new(model)
         .preamble(&preamble)
+        .hook(logger)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -175,11 +183,12 @@ pub fn create_wifi_orchestrator_agent<M: CompletionModel + Clone + Send + Sync +
     semaphore: Arc<Semaphore>,
     run_id: i64,
     available_tools: &AvailableTools,
-) -> Agent<M>
+) -> Agent<M, LlmLogger>
 where
     M::Response: Send,
     M::StreamingResponse: Send,
 {
+    let logger = LlmLogger::new(config.clone(), memory.clone(), Some(run_id), "orchestrator");
     let model_arc = Arc::new(model);
     let available_tools_arc = Arc::new(available_tools.clone());
     let tools = make_orchestrator_tools(
@@ -194,6 +203,7 @@ where
 
     AgentBuilder::new((*model_arc).clone())
         .preamble(&preamble)
+        .hook(logger)
         .tools(tools)
         .temperature(0.3)
         .max_tokens(4096)
@@ -260,6 +270,13 @@ where
     match run_recon_task(&orchestrator, &prompt).await {
         Ok(result) => {
             let _ = update_run(&memory, run_id, "completed").await;
+            // Log token summary for the run
+            if let Ok(summary) = get_run_token_summary(&memory, run_id).await {
+                log::info!(
+                    "[llm] run_id={} total_input_tokens={} total_output_tokens={} total_tokens={} call_count={}",
+                    run_id, summary.total_input_tokens, summary.total_output_tokens, summary.total_tokens, summary.call_count
+                );
+            }
             Ok(result)
         }
         Err(e) => {
@@ -323,6 +340,13 @@ where
     match run_recon_task(&orchestrator, &prompt).await {
         Ok(result) => {
             let _ = update_run(&memory, run_id, "completed").await;
+            // Log token summary for the run
+            if let Ok(summary) = get_run_token_summary(&memory, run_id).await {
+                log::info!(
+                    "[llm] run_id={} total_input_tokens={} total_output_tokens={} total_tokens={} call_count={}",
+                    run_id, summary.total_input_tokens, summary.total_output_tokens, summary.total_tokens, summary.call_count
+                );
+            }
             Ok((result, run_id))
         }
         Err(e) => {
