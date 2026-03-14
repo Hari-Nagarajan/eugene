@@ -29,7 +29,7 @@ mod cve;
 pub use cve::{get_cached_cves, store_cached_cves, delete_stale_cves};
 
 mod llm;
-pub use llm::insert_llm_interaction;
+pub use llm::{insert_llm_interaction, get_run_token_summary, RunTokenSummary};
 
 mod wifi;
 pub use wifi::{insert_wifi_ap, get_wifi_aps, insert_wifi_client, insert_client_probe, get_wifi_clients, get_matched_probes, migrate_wifi_schema, WifiClient, MatchedProbe, WifiCredential, insert_wifi_credential, get_wifi_credentials, update_wps_enabled};

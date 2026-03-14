@@ -51,6 +51,44 @@ pub async fn insert_llm_interaction(
     .map_err(MemoryError::from)
 }
 
+/// Aggregated token usage summary for a specific run.
+pub struct RunTokenSummary {
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub total_tokens: i64,
+    pub call_count: i64,
+}
+
+/// Get aggregated token usage for a run, counting only successful interactions.
+///
+/// Returns zero values if no matching rows exist.
+pub async fn get_run_token_summary(
+    conn: &Connection,
+    run_id: i64,
+) -> Result<RunTokenSummary, MemoryError> {
+    conn.call(move |conn| {
+        Ok(conn.query_row(
+            "SELECT COALESCE(SUM(input_tokens), 0),
+                    COALESCE(SUM(output_tokens), 0),
+                    COALESCE(SUM(total_tokens), 0),
+                    COUNT(*)
+             FROM llm_interactions
+             WHERE run_id = ?1 AND status = 'success'",
+            rusqlite::params![run_id],
+            |row| {
+                Ok(RunTokenSummary {
+                    total_input_tokens: row.get(0)?,
+                    total_output_tokens: row.get(1)?,
+                    total_tokens: row.get(2)?,
+                    call_count: row.get(3)?,
+                })
+            },
+        )?)
+    })
+    .await
+    .map_err(MemoryError::from)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +192,118 @@ mod tests {
 
         assert_eq!(status, "error");
         assert_eq!(error_msg, Some("Connection timeout".to_string()));
+    }
+
+    /// Helper to insert a success interaction with known token values.
+    async fn insert_success_row(
+        conn: &std::sync::Arc<Connection>,
+        run_id: i64,
+        input: i64,
+        output: i64,
+        total: i64,
+    ) {
+        insert_llm_interaction(
+            conn,
+            Some(run_id),
+            &uuid::Uuid::new_v4().to_string(),
+            "openai",
+            "gpt-4",
+            Some("test"),
+            None,
+            None,
+            Some(input),
+            Some(output),
+            Some(total),
+            Some(100),
+            "success",
+            None,
+            "2026-01-01T00:00:00Z",
+        )
+        .await
+        .unwrap();
+    }
+
+    /// Helper to insert an error interaction.
+    async fn insert_error_row(conn: &std::sync::Arc<Connection>, run_id: i64) {
+        insert_llm_interaction(
+            conn,
+            Some(run_id),
+            &uuid::Uuid::new_v4().to_string(),
+            "openai",
+            "gpt-4",
+            Some("test"),
+            None,
+            None,
+            Some(50),
+            Some(50),
+            Some(100),
+            Some(100),
+            "error",
+            Some("test error"),
+            "2026-01-01T00:00:00Z",
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_run_token_summary_single_row() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        insert_success_row(&conn, run_id, 10, 20, 30).await;
+
+        let summary = get_run_token_summary(&conn, run_id).await.unwrap();
+        assert_eq!(summary.total_input_tokens, 10);
+        assert_eq!(summary.total_output_tokens, 20);
+        assert_eq!(summary.total_tokens, 30);
+        assert_eq!(summary.call_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_run_token_summary_multiple_rows() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        insert_success_row(&conn, run_id, 10, 20, 30).await;
+        insert_success_row(&conn, run_id, 100, 200, 300).await;
+        insert_success_row(&conn, run_id, 50, 80, 130).await;
+
+        let summary = get_run_token_summary(&conn, run_id).await.unwrap();
+        assert_eq!(summary.total_input_tokens, 160);
+        assert_eq!(summary.total_output_tokens, 300);
+        assert_eq!(summary.total_tokens, 460);
+        assert_eq!(summary.call_count, 3);
+    }
+
+    #[tokio::test]
+    async fn test_run_token_summary_no_rows() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+
+        let summary = get_run_token_summary(&conn, 99999).await.unwrap();
+        assert_eq!(summary.total_input_tokens, 0);
+        assert_eq!(summary.total_output_tokens, 0);
+        assert_eq!(summary.total_tokens, 0);
+        assert_eq!(summary.call_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_run_token_summary_excludes_errors() {
+        let conn = open_memory_store(":memory:").await.unwrap();
+        init_schema(&conn).await.unwrap();
+        let run_id = create_run(&conn, "test".to_string(), None).await.unwrap();
+
+        insert_success_row(&conn, run_id, 10, 20, 30).await;
+        insert_success_row(&conn, run_id, 40, 50, 90).await;
+        insert_error_row(&conn, run_id).await;
+
+        let summary = get_run_token_summary(&conn, run_id).await.unwrap();
+        assert_eq!(summary.total_input_tokens, 50);
+        assert_eq!(summary.total_output_tokens, 70);
+        assert_eq!(summary.total_tokens, 120);
+        assert_eq!(summary.call_count, 2, "Error rows should be excluded");
     }
 }
