@@ -273,3 +273,28 @@ CREATE TABLE IF NOT EXISTS wifi_credentials (
     UNIQUE(run_id, bssid)
 );
 CREATE INDEX IF NOT EXISTS idx_wifi_cred_bssid ON wifi_credentials(bssid);
+
+-- 16. LLM Interactions (observability log for all LLM calls)
+CREATE TABLE IF NOT EXISTS llm_interactions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id          INTEGER,
+    request_id      TEXT NOT NULL,
+    provider        TEXT,
+    model           TEXT,
+    caller_context  TEXT,
+    prompt_text     TEXT,
+    response_text   TEXT,
+    input_tokens    INTEGER,
+    output_tokens   INTEGER,
+    total_tokens    INTEGER,
+    latency_ms      INTEGER,
+    status          TEXT NOT NULL DEFAULT 'success'
+                    CHECK(status IN ('success', 'error')),
+    error_message   TEXT,
+    created_at      TEXT NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES runs(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_llm_interactions_run ON llm_interactions(run_id);
+CREATE INDEX IF NOT EXISTS idx_llm_interactions_created ON llm_interactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_llm_interactions_status ON llm_interactions(status);

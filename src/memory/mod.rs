@@ -260,7 +260,7 @@ mod tests {
                 "INSERT INTO llm_interactions (run_id, request_id, provider, model, caller_context, prompt_text, response_text, input_tokens, output_tokens, total_tokens, latency_ms, status, error_message, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
                 rusqlite::params![
-                    1i64, "full-req-id", "openai", "gpt-4", "test_context",
+                    rusqlite::types::Null, "full-req-id", "openai", "gpt-4", "test_context",
                     "prompt", "response", 10, 20, 30, 150, "success", rusqlite::types::Null, "2026-01-01T00:00:00Z"
                 ],
             )?;
