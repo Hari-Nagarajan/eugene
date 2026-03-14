@@ -21,6 +21,9 @@ async fn main() -> Result<(), anyhow::Error> {
     if let Some(ref m) = cli.model {
         config.model = Some(m.clone());
     }
+    if let Some(level) = cli.llm_log {
+        config.llm_log_level = level;
+    }
 
     let config = Arc::new(config);
 

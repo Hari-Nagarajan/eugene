@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+use crate::config::LlmLogLevel;
+
 /// Eugene - Autonomous Recon Agent
 #[derive(Parser)]
 #[command(name = "eugene", version, about = "Autonomous Recon Agent")]
@@ -11,6 +13,10 @@ pub struct Cli {
     /// Override LLM model for this run
     #[arg(long, global = true)]
     pub model: Option<String>,
+
+    /// Override LLM log verbosity for this run (off, summary, full)
+    #[arg(long = "llm-log", global = true, value_enum)]
+    pub llm_log: Option<LlmLogLevel>,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -236,5 +242,34 @@ mod tests {
         let cli = Cli::parse_from(["eugene", "bot", "--provider", "openrouter", "--model", "gpt-4o"]);
         assert_eq!(cli.provider, Some("openrouter".to_string()));
         assert_eq!(cli.model, Some("gpt-4o".to_string()));
+    }
+
+    // ---- --llm-log flag tests ----
+
+    #[test]
+    fn test_cli_llm_log_flag() {
+        use crate::config::LlmLogLevel;
+        let cli = Cli::parse_from(["eugene", "run", "--llm-log", "full"]);
+        assert_eq!(cli.llm_log, Some(LlmLogLevel::Full));
+    }
+
+    #[test]
+    fn test_cli_llm_log_default_none() {
+        let cli = Cli::parse_from(["eugene", "run"]);
+        assert_eq!(cli.llm_log, None);
+    }
+
+    #[test]
+    fn test_cli_llm_log_with_wifi() {
+        use crate::config::LlmLogLevel;
+        let cli = Cli::parse_from(["eugene", "wifi", "--llm-log", "summary"]);
+        assert_eq!(cli.llm_log, Some(LlmLogLevel::Summary));
+        assert!(matches!(cli.command, Commands::Wifi { .. }));
+    }
+
+    #[test]
+    fn test_cli_llm_log_invalid_value() {
+        let result = Cli::try_parse_from(["eugene", "run", "--llm-log", "verbose"]);
+        assert!(result.is_err());
     }
 }
