@@ -565,4 +565,79 @@ mod tests {
         assert_eq!(config.provider, Some("openrouter".to_string()));
         assert_eq!(config.minimax_api_key, Some("or-key".to_string()));
     }
+
+    // ---- LlmLogLevel tests ----
+
+    #[test]
+    fn test_llm_log_level_from_str() {
+        assert_eq!("off".parse::<LlmLogLevel>().unwrap(), LlmLogLevel::Off);
+        assert_eq!("summary".parse::<LlmLogLevel>().unwrap(), LlmLogLevel::Summary);
+        assert_eq!("full".parse::<LlmLogLevel>().unwrap(), LlmLogLevel::Full);
+        // Case insensitive
+        assert_eq!("OFF".parse::<LlmLogLevel>().unwrap(), LlmLogLevel::Off);
+        assert_eq!("Summary".parse::<LlmLogLevel>().unwrap(), LlmLogLevel::Summary);
+        assert_eq!("FULL".parse::<LlmLogLevel>().unwrap(), LlmLogLevel::Full);
+        // Invalid
+        assert!("verbose".parse::<LlmLogLevel>().is_err());
+        assert!("".parse::<LlmLogLevel>().is_err());
+    }
+
+    #[test]
+    fn test_llm_log_level_display() {
+        assert_eq!(LlmLogLevel::Off.to_string(), "off");
+        assert_eq!(LlmLogLevel::Summary.to_string(), "summary");
+        assert_eq!(LlmLogLevel::Full.to_string(), "full");
+    }
+
+    #[test]
+    fn test_llm_log_level_from_toml() {
+        let toml_str = r#"
+[llm]
+llm_log_level = "summary"
+"#;
+        let cfg: EugeneConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(cfg.llm.llm_log_level, Some(LlmLogLevel::Summary));
+    }
+
+    #[test]
+    fn test_llm_log_level_toml_all_variants() {
+        for (input, expected) in [("off", LlmLogLevel::Off), ("summary", LlmLogLevel::Summary), ("full", LlmLogLevel::Full)] {
+            let toml_str = format!("[llm]\nllm_log_level = \"{}\"", input);
+            let cfg: EugeneConfig = toml::from_str(&toml_str).unwrap();
+            assert_eq!(cfg.llm.llm_log_level, Some(expected));
+        }
+    }
+
+    #[test]
+    fn test_llm_log_level_env_fallback() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("EUGENE_LLM_LOG", "summary") };
+        let config = Config::load_with_toml(EugeneConfig::default());
+        assert_eq!(config.llm_log_level, LlmLogLevel::Summary);
+        unsafe { std::env::remove_var("EUGENE_LLM_LOG") };
+    }
+
+    #[test]
+    fn test_llm_log_level_cascade_toml_wins() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("EUGENE_LLM_LOG", "full") };
+        let toml = EugeneConfig {
+            llm: LlmConfig {
+                llm_log_level: Some(LlmLogLevel::Summary),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let config = Config::load_with_toml(toml);
+        assert_eq!(config.llm_log_level, LlmLogLevel::Summary);
+        unsafe { std::env::remove_var("EUGENE_LLM_LOG") };
+    }
+
+    #[test]
+    fn test_llm_log_level_default_off() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("EUGENE_LLM_LOG") };
+        let config = Config::load_with_toml(EugeneConfig::default());
+        assert_eq!(config.llm_log_level, LlmLogLevel::Off);
+    }
 }
