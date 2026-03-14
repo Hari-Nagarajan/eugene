@@ -43,6 +43,7 @@ pub mod prompt;
 pub mod tools_available;
 
 pub mod mock;
+pub mod llm_logger;
 
 use std::sync::Arc;
 use tokio::sync::Semaphore;
